@@ -1,0 +1,1722 @@
+---
+openapi: 3.0.3
+info:
+  title: ELI for Polish acts
+  version: "1.0"
+servers:
+- url: https://api.sejm.gov.pl/eli
+tags:
+- name: act details
+- name: global operations
+- name: listing acts
+paths:
+  /:
+    get:
+      tags:
+      - global operations
+      summary: list of URLs
+      description: Returns a list of URLs provided by this API endpoint.
+      operationId: eliLinks
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+  /acts:
+    get:
+      tags:
+      - listing acts
+      summary: a list of publishers
+      description: Returns a list of publishing houses
+      operationId: getPublishers
+      responses:
+        "200":
+          description: publishing houses
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishingHouse'
+  /acts/search:
+    get:
+      tags:
+      - listing acts
+      summary: search for acts
+      description: Finds acts that match a specified criteria.
+      operationId: search
+      parameters:
+      - name: date
+        in: query
+        description: "a date of announcement of an act, in the format yyyy-MM-dd"
+        required: false
+        schema:
+          type: string
+      - name: dateEffect
+        in: query
+        description: "a date of effect, in the format yyyy-MM-dd"
+        required: false
+        schema:
+          type: string
+      - name: dateEffectFrom
+        in: query
+        description: "a date of effect to search from, in the format yyyy-MM-dd"
+        required: false
+        schema:
+          type: string
+      - name: dateEffectTo
+        in: query
+        description: "a date of effect to search to, in the format yyyy-MM-dd"
+        required: false
+        schema:
+          type: string
+      - name: dateFrom
+        in: query
+        description: "a date of announcement to search from, in the format yyyy-MM-dd"
+        required: false
+        schema:
+          type: string
+      - name: dateTo
+        in: query
+        description: "a date of announcement to search to, in the format yyyy-MM-dd"
+        required: false
+        schema:
+          type: string
+      - name: exile
+        in: query
+        description: specify 'E' to search in the Exile database
+        required: false
+        schema:
+          type: string
+      - name: inForce
+        in: query
+        description: "empty to search for all documents, '1' to search only for active\
+          \ documents"
+        required: false
+        schema:
+          type: string
+      - name: keyword
+        in: query
+        description: "a list of keywords, separated by comma"
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: a limit
+        required: false
+        schema:
+          format: int32
+          default: 500
+          type: integer
+        example: 50
+      - name: offset
+        in: query
+        description: a start index
+        required: false
+        schema:
+          format: int32
+          default: 0
+          type: integer
+        example: 100
+      - name: position
+        in: query
+        description: a position of publication
+        required: false
+        schema:
+          format: int32
+          type: integer
+      - name: pubDate
+        in: query
+        description: "a date of promulgation to search on, in the format yyyy-MM-dd"
+        required: false
+        schema:
+          type: string
+      - name: pubDateFrom
+        in: query
+        description: "a date of promulgation to search from, in the format yyyy-MM-dd"
+        required: false
+        schema:
+          type: string
+      - name: pubDateTo
+        in: query
+        description: "a date of promulgation to search to, in the format yyyy-MM-dd"
+        required: false
+        schema:
+          type: string
+      - name: publisher
+        in: query
+        description: a code of a publisher
+        required: false
+        schema:
+          type: string
+      - name: sortBy
+        in: query
+        description: "a name of a column to sort by: publisher, position, title, change"
+        required: false
+        schema:
+          type: string
+        example: 100
+      - name: sortDir
+        in: query
+        description: a sorting direction
+        required: false
+        schema:
+          type: string
+        example: asc or desc
+      - name: title
+        in: query
+        description: words to find in title
+        required: false
+        schema:
+          type: string
+      - name: type
+        in: query
+        description: a type of document
+        required: false
+        schema:
+          type: string
+      - name: volume
+        in: query
+        description: a publication volume
+        required: false
+        schema:
+          format: int32
+          type: integer
+      - name: year
+        in: query
+        description: a year of publication
+        required: false
+        schema:
+          format: int32
+          type: integer
+      responses:
+        "200":
+          description: a list of acts matching a search criteria
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/acts'
+  /acts/{address}:
+    get:
+      tags:
+      - act details
+      summary: act details
+      description: Finds an act by a publishing address
+      operationId: getActDetailsPub
+      parameters:
+      - name: address
+        in: path
+        description: a publishing address
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{3}\\d{11}"
+          type: string
+        example: WDU19900190117
+      responses:
+        "200":
+          description: Details of an act.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Act'
+        "404":
+          description: Act not found.
+  /acts/{publisher}:
+    get:
+      tags:
+      - listing acts
+      summary: publisher info
+      description: Returns an information about given publisher. The information about
+        publisher contains a list of years in which there are any acts published.
+      operationId: getYears
+      parameters:
+      - name: publisher
+        in: path
+        description: a symbol (code) of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishingHouse'
+  /acts/{publisher}/{year}:
+    get:
+      tags:
+      - listing acts
+      summary: acts in year
+      description: Returns a list of acts for a given publisher and a given year
+      operationId: getActsInYear
+      parameters:
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 1990
+      - name: sortBy
+        in: query
+        description: "a name of a column to sort by: publisher, position, title, change"
+        required: false
+        schema:
+          type: string
+        example: change
+      - name: sortDir
+        in: query
+        description: a sorting direction
+        required: false
+        schema:
+          type: string
+        example: desc
+      responses:
+        "200":
+          description: a list of acts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/acts'
+        "404":
+          description: publisher not found
+  /acts/{publisher}/{year}/volumes:
+    get:
+      tags:
+      - listing acts
+      summary: volumes
+      description: returns a list of volumes for a given publisher and a given year
+      operationId: getVolumes
+      parameters:
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 1990
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                uniqueItems: true
+                type: array
+                items:
+                  format: int32
+                  type: integer
+  /acts/{publisher}/{year}/volumes/{volume}:
+    get:
+      tags:
+      - listing acts
+      summary: acts in volume
+      description: returns a list of acts for a given volume
+      operationId: getVolume
+      parameters:
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: volume
+        in: path
+        description: a volume
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 19
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 1990
+      responses:
+        "200":
+          description: a list of acts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/acts'
+        "404":
+          description: publisher not found
+  /acts/{publisher}/{year}/volumes/{volume}/{position}:
+    get:
+      tags:
+      - act details
+      summary: get act in a volume
+      description: returns an act in a given volume
+      operationId: getActInVolume
+      parameters:
+      - name: position
+        in: path
+        description: a position of an act
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 117
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: volume
+        in: path
+        description: a volume
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 19
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 1990
+      responses:
+        "200":
+          description: an act
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Act'
+        "404":
+          description: act not found
+  /acts/{publisher}/{year}/volumes/{volume}/{position}/references:
+    get:
+      tags:
+      - act details
+      summary: act references
+      description: Returns a map of type -> list of references for a given act
+      operationId: getActInVolumeReferences
+      parameters:
+      - name: position
+        in: path
+        description: a position of an act
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 8
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: volume
+        in: path
+        description: a volume
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 19
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 1990
+      responses:
+        "200":
+          description: a list of references
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferencesDetailsInfo'
+        "404":
+          description: act not found
+  /acts/{publisher}/{year}/volumes/{volume}/{position}/struct:
+    get:
+      tags:
+      - act details
+      summary: act structure
+      description: "Returns a structure of a document (chapters, articles, paragraphs,\
+        \ ...)"
+      operationId: getActInVolumeStruct
+      parameters:
+      - name: position
+        in: path
+        description: a position of an act
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 2
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: volume
+        in: path
+        description: a volume
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 19
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 2017
+      responses:
+        "200":
+          description: OK
+  /acts/{publisher}/{year}/volumes/{volume}/{position}/text.html:
+    get:
+      tags:
+      - act details
+      summary: act text
+      description: Display a text of a given act in the HTML format
+      operationId: getActInVolumeHTML
+      parameters:
+      - name: position
+        in: path
+        description: a position of an act
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 2
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: volume
+        in: path
+        description: a volume
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 19
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 2017
+      responses:
+        "200":
+          description: a text of an act
+          content:
+            text/html: {}
+  /acts/{publisher}/{year}/volumes/{volume}/{position}/text.html/{tree}:
+    get:
+      tags:
+      - act details
+      summary: act fragment
+      description: Display a fragment of a given act in the HTML format
+      operationId: getActInVolumeHTMLFragment
+      parameters:
+      - name: position
+        in: path
+        description: a position of an act
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 2
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: tree
+        in: path
+        description: "a path in the structure of a document constructed from the following\
+          \ parts: - ksiega or book\r\n- tytul or titl\r\n- dzial or bran\r\n- rozdzial\
+          \ or chpt\r\n- oddzial or schp\r\n- artykul or art or arti\r\n- ustep or\
+          \ pass\r\n- paragraf or para\r\n- punkt or pint\r\n- litera or lit or lett\r\
+          \n"
+        required: true
+        schema:
+          pattern: .+
+          type: string
+        example: rozdzial=1/art=4/para=1/ustep=3/punkt=2/litera=d
+      - name: volume
+        in: path
+        description: a volume
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 19
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 2017
+      responses:
+        "200":
+          description: a fragment of a text of an act
+          content:
+            text/html: {}
+  /acts/{publisher}/{year}/volumes/{volume}/{position}/text.pdf:
+    get:
+      tags:
+      - act details
+      summary: act text in PDF
+      description: Download a text for a given act in the PDF format
+      operationId: getActInVolumePDF
+      parameters:
+      - name: position
+        in: path
+        description: a position of an act
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 2
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: volume
+        in: path
+        description: a volume
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 19
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 2017
+      responses:
+        "200":
+          description: a text of an act
+          content:
+            application/pdf: {}
+  /acts/{publisher}/{year}/volumes/{volume}/{position}/text/{type}/{fileName}:
+    get:
+      tags:
+      - act details
+      summary: act text
+      description: Download a text for a given act with specified type and name
+      operationId: getActInVolumeFile
+      parameters:
+      - name: fileName
+        in: path
+        description: a name of a file to download
+        required: true
+        schema:
+          type: string
+        example: D19900003.pdf
+      - name: position
+        in: path
+        description: a position of an act
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 8
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: type
+        in: path
+        description: a type of text
+        required: true
+        schema:
+          type: string
+        example: O
+      - name: volume
+        in: path
+        description: a volume
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 19
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 1990
+      responses:
+        "200":
+          description: a text of an act
+          content:
+            application/pdf: {}
+  /acts/{publisher}/{year}/{position}:
+    get:
+      tags:
+      - act details
+      summary: act details
+      description: "Finds an act by a publisher, year and a number"
+      operationId: getActDetails
+      parameters:
+      - name: position
+        in: path
+        description: a position of an act
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 8
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 1990
+      responses:
+        "200":
+          description: Details of an act.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Act'
+        "404":
+          description: Act not found.
+  /acts/{publisher}/{year}/{position}/references:
+    get:
+      tags:
+      - act details
+      summary: act references
+      description: Returns a map of type -> list of references for a given act
+      operationId: getActReferences
+      parameters:
+      - name: position
+        in: path
+        description: a position of an act
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 8
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 1990
+      responses:
+        "200":
+          description: a list of references
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferencesDetailsInfo'
+        "404":
+          description: act not found
+  /acts/{publisher}/{year}/{position}/struct:
+    get:
+      tags:
+      - act details
+      summary: act structure
+      description: "Returns a structure of a document (chapters, articles, paragraphs,\
+        \ ...)"
+      operationId: getActStruct
+      parameters:
+      - name: position
+        in: path
+        description: a position of an act
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 2
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 2017
+      responses:
+        "200":
+          description: OK
+  /acts/{publisher}/{year}/{position}/text.html:
+    get:
+      tags:
+      - act details
+      summary: act text
+      description: Display a text of a given act in the HTML format
+      operationId: getActHTML
+      parameters:
+      - name: position
+        in: path
+        description: a position of an act
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 2
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 2017
+      responses:
+        "200":
+          description: a text of an act
+          content:
+            text/html: {}
+  /acts/{publisher}/{year}/{position}/text.html/{tree}:
+    get:
+      tags:
+      - act details
+      summary: act fragment
+      description: Display a fragment of a given act in the HTML format
+      operationId: getActHTMLFragment
+      parameters:
+      - name: position
+        in: path
+        description: a position of an act
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 2
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: tree
+        in: path
+        description: "a path in the structure of a document constructed from the following\
+          \ parts: - ksiega or book\r\n- tytul or titl\r\n- dzial or bran\r\n- rozdzial\
+          \ or chpt\r\n- oddzial or schp\r\n- artykul or art or arti\r\n- ustep or\
+          \ pass\r\n- paragraf or para\r\n- punkt or pint\r\n- litera or lit or lett\r\
+          \n"
+        required: true
+        schema:
+          pattern: .+
+          type: string
+        example: rozdzial=1/art=4/para=1/ustep=3/punkt=2/litera=d
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 2017
+      responses:
+        "200":
+          description: a fragment of a text of an act
+          content:
+            text/html: {}
+  /acts/{publisher}/{year}/{position}/text.pdf:
+    get:
+      tags:
+      - act details
+      summary: act text in PDF
+      description: Download a text for a given act in the PDF format
+      operationId: getActPDF
+      parameters:
+      - name: position
+        in: path
+        description: a position of an act
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 2
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 2017
+      responses:
+        "200":
+          description: a text of an act
+          content:
+            application/pdf: {}
+  /acts/{publisher}/{year}/{position}/text/{type}/{fileName}:
+    get:
+      tags:
+      - act details
+      summary: act text
+      description: Download a text for a given act with specified type and name
+      operationId: getActFile
+      parameters:
+      - name: fileName
+        in: path
+        description: a name of a file to download
+        required: true
+        schema:
+          type: string
+        example: D19900003.pdf
+      - name: position
+        in: path
+        description: a position of an act
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 8
+      - name: publisher
+        in: path
+        description: a symbol of a publisher
+        required: true
+        schema:
+          pattern: "[A-ZĄĘĆŁŃÓŚŻŹ_]{2,3}"
+          type: string
+        example: DU
+      - name: type
+        in: path
+        description: a type of text
+        required: true
+        schema:
+          type: string
+        example: O
+      - name: year
+        in: path
+        description: a year
+        required: true
+        schema:
+          format: int32
+          type: integer
+        example: 1990
+      responses:
+        "200":
+          description: a text of an act
+          content:
+            application/pdf: {}
+  /changes/acts:
+    get:
+      tags:
+      - global operations
+      summary: changed acts
+      description: "Returns a list of changed acts, sorted by the change date."
+      operationId: getChanges
+      parameters:
+      - name: limit
+        in: query
+        description: "a number of entries to return, maximum is 500 entries."
+        required: false
+        schema:
+          format: int32
+          default: 100
+          type: integer
+        example: 50
+      - name: offset
+        in: query
+        description: a start index
+        required: false
+        schema:
+          format: int32
+          default: 0
+          type: integer
+        example: 100
+      - name: since
+        in: query
+        description: a date to search for changes from
+        required: true
+        schema:
+          type: string
+        example: 2018-01-02T12:15:34
+      responses:
+        "200":
+          description: a list of changed acts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/acts'
+  /institutions:
+    get:
+      tags:
+      - global operations
+      summary: list of institutions
+      description: Returns a list of institutions.
+      operationId: getInstitutions
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                uniqueItems: true
+                type: array
+                items:
+                  type: string
+  /keywords:
+    get:
+      tags:
+      - global operations
+      summary: list of keywords
+      description: Returns a list of keywords.
+      operationId: getKeywords
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                uniqueItems: true
+                type: array
+                items:
+                  type: string
+  /references:
+    get:
+      tags:
+      - global operations
+      summary: list of reference types
+      description: Returns a list of reference types.
+      operationId: getReferenceTypes
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                uniqueItems: true
+                type: array
+                items:
+                  type: string
+  /statuses:
+    get:
+      tags:
+      - global operations
+      summary: list of statuses
+      description: Returns a list of statuses that an act can have.
+      operationId: getStatuses
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+  /titles:
+    get:
+      tags:
+      - global operations
+      summary: title search
+      description: Returns a list of words that appear in titles of acts
+      operationId: searchByTitle
+      parameters:
+      - name: q
+        in: query
+        description: a fragment of title to search
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+  /types:
+    get:
+      tags:
+      - global operations
+      summary: list of types
+      description: Returns a list of document types.
+      operationId: getTypes
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                uniqueItems: true
+                type: array
+                items:
+                  type: string
+components:
+  schemas:
+    Act:
+      description: Information about an act.
+      type: object
+      properties:
+        address:
+          description: "an address of publication. An address is in format {publisher}{year}{volume}{position}."
+          type: string
+          example: WDU20170002196
+        publisher:
+          description: a code of a publisher
+          type: string
+          example: DU
+        year:
+          format: int32
+          description: a year of publication
+          type: integer
+          example: 2017
+        volume:
+          format: int32
+          description: a volume of a publication. Specifies a volume in year. After
+            year 2012 there are no volumes and this field should have value '0'.
+          type: integer
+          example: 1
+        pos:
+          format: int32
+          description: a position in a year (or in a volume before year 2012)
+          type: integer
+          example: 2196
+        title:
+          description: a title of this act
+          type: string
+          example: Obwieszczenie Marszałka Sejmu Rzeczypospolitej Polskiej z dnia
+            9 listopada 2017 r. w sprawie ogłoszenia jednolitego tekstu ustawy o kształtowaniu
+            ustroju rolnego
+        displayAddress:
+          description: a display address
+          type: string
+          example: Dz.U. 2017 poz. 2332
+        promulgation:
+          format: date
+          description: promulgation date
+          type: string
+          example: 2022-03-10
+        announcementDate:
+          format: date
+          description: announcement date
+          type: string
+          example: 2022-03-10
+        textPDF:
+          description: a flag indicating this act has a PDF text
+          type: boolean
+        textHTML:
+          description: a flag indicating this act has a HTML text
+          type: boolean
+        changeDate:
+          format: date-time
+          description: date and time of last change in a document
+          type: string
+          example: 2018-01-05 12:50
+        ELI:
+          description: an European Legislation Identifier
+          type: string
+          example: DU/2017/2196
+        type:
+          description: a type of the act
+          type: string
+          example: Ustawa
+        status:
+          description: status of the act
+          type: string
+          example: obowiązujący
+        entryIntoForce:
+          format: date
+          description: date of entry into force
+          type: string
+          example: 2022-03-10
+        validFrom:
+          format: date
+          description: date of binding force
+          type: string
+          example: 2022-03-10
+        repealDate:
+          format: date
+          description: date of repeal of the act
+          type: string
+          example: 2022-03-10
+        expirationDate:
+          format: date
+          description: date of expiration of the act
+          type: string
+          example: 2022-03-10
+        legalStatusDate:
+          format: date
+          description: date of legal status
+          type: string
+          example: 2022-03-10
+        inForce:
+          description: is the act in force
+          type: string
+          allOf:
+          - $ref: '#/components/schemas/StatusInForce'
+        comments:
+          description: comments
+          type: string
+        releasedBy:
+          description: issuing authority
+          type: array
+          items:
+            type: string
+          example: MIN. ROLNICTWA I ROZWOJU WSI
+        authorizedBody:
+          description: authorized body
+          type: array
+          items:
+            type: string
+        obligated:
+          description: obligated authority
+          type: array
+          items:
+            type: string
+          example: MIN. WŁAŚCIWY DS ROZWOJU WSI
+        directives:
+          description: a list of european directives
+          type: array
+          items:
+            $ref: '#/components/schemas/Directive'
+        keywords:
+          description: a list of keywords associated with this act
+          uniqueItems: true
+          type: array
+          items:
+            type: string
+          example: produkty rolnicze
+        keywordsNames:
+          description: a list of names associated with this act
+          uniqueItems: true
+          type: array
+          items:
+            type: string
+          example: Rzecznik Praw Pacjenta
+        texts:
+          description: a list of texts
+          type: array
+          items:
+            $ref: '#/components/schemas/ActText'
+        previousTitle:
+          description: a list of previous titles of this act
+          type: array
+          items:
+            type: string
+        prints:
+          description: a list of prints
+          type: array
+          items:
+            $ref: '#/components/schemas/PrintRef'
+        references:
+          description: a list of references
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/ReferenceInfo'
+      nullable: true
+    ActInfo:
+      description: Basic information about an act.
+      type: object
+      properties:
+        address:
+          description: "an address of publication. An address is in format {publisher}{year}{volume}{position}."
+          type: string
+          example: WDU20170002196
+        publisher:
+          description: a code of a publisher
+          type: string
+          example: DU
+        year:
+          format: int32
+          description: a year of publication
+          type: integer
+          example: 2017
+        volume:
+          format: int32
+          description: a volume of a publication. Specifies a volume in year. After
+            year 2012 there are no volumes and this field should have value '0'.
+          type: integer
+          example: 1
+        pos:
+          format: int32
+          description: a position in a year (or in a volume before year 2012)
+          type: integer
+          example: 2196
+        title:
+          description: a title of this act
+          type: string
+          example: Obwieszczenie Marszałka Sejmu Rzeczypospolitej Polskiej z dnia
+            9 listopada 2017 r. w sprawie ogłoszenia jednolitego tekstu ustawy o kształtowaniu
+            ustroju rolnego
+        displayAddress:
+          description: a display address
+          type: string
+          example: Dz.U. 2017 poz. 2332
+        promulgation:
+          format: date
+          description: promulgation date
+          type: string
+          example: 2022-03-10
+        announcementDate:
+          format: date
+          description: announcement date
+          type: string
+          example: 2022-03-10
+        textPDF:
+          description: a flag indicating this act has a PDF text
+          type: boolean
+        textHTML:
+          description: a flag indicating this act has a HTML text
+          type: boolean
+        changeDate:
+          format: date-time
+          description: date and time of last change in a document
+          type: string
+          example: 2018-01-05 12:50
+        ELI:
+          description: an European Legislation Identifier
+          type: string
+          example: DU/2017/2196
+        type:
+          description: a type of the act
+          type: string
+          example: Ustawa
+        status:
+          description: status of the act
+          type: string
+          example: obowiązujący
+    ActOrder:
+      description: a sorting order
+      type: object
+      properties:
+        column:
+          description: a name of column to sort by
+          type: string
+          allOf:
+          - $ref: '#/components/schemas/SortColumn'
+        dir:
+          description: an order in which sort the data (ascending or descending)
+          type: string
+          allOf:
+          - $ref: '#/components/schemas/SortDir'
+    ActQuery:
+      description: a query for searching acts
+      type: object
+      properties:
+        exile:
+          description: include acts from Polish authorities in exile
+          type: boolean
+        statusInForce:
+          description: include only acts in force
+          type: boolean
+        publisher:
+          description: a code of the selected publisher
+          type: string
+        publisherName:
+          description: a name of the selected publisher
+          type: string
+        year:
+          format: int32
+          description: a selected year of publication
+          type: integer
+        volume:
+          format: int32
+          description: a selected volume of publication
+          type: integer
+        position:
+          format: int32
+          description: a selected position of publication
+          type: integer
+        title:
+          description: a title to search for
+          type: string
+        type:
+          description: a list of act types to search for
+          type: array
+          items:
+            type: string
+        keyword:
+          description: a list of keywords to search for
+          type: array
+          items:
+            type: string
+        dateType:
+          description: a type of search on date of announcement
+          type: string
+          allOf:
+          - $ref: '#/components/schemas/SearchDate'
+        dateFrom:
+          format: date
+          description: a date of announcement to search from
+          type: string
+          example: 2022-03-10
+        dateTo:
+          format: date
+          description: a date of announcement to search to
+          type: string
+          example: 2022-03-10
+        dateEffectType:
+          description: a type of search on date of effect
+          type: string
+          allOf:
+          - $ref: '#/components/schemas/SearchDate'
+        dateEffectFrom:
+          format: date
+          description: a date of effect to search from
+          type: string
+          example: 2022-03-10
+        dateEffectTo:
+          format: date
+          description: a date of effect to search to
+          type: string
+          example: 2022-03-10
+        pubDateType:
+          description: a type of search on date of publication
+          type: string
+          allOf:
+          - $ref: '#/components/schemas/SearchDate'
+        pubDateFrom:
+          format: date
+          description: a date of publication to search from
+          type: string
+          example: 2022-03-10
+        pubDateTo:
+          format: date
+          description: a date of publication to search to
+          type: string
+          example: 2022-03-10
+        comparator:
+          description: a sorting direction
+          type: object
+          allOf:
+          - $ref: '#/components/schemas/ActOrder'
+    ActReference:
+      description: A reference from one act to another act.
+      type: object
+      properties:
+        article:
+          description: referenced article (optional)
+          type: string
+          example: art. 30a ust. 5
+        date:
+          format: date
+          description: "a date (optional, e.g. for repeal)"
+          type: string
+          example: 2017-01-05
+        changeDate:
+          format: date-time
+          description: date and time of last change in a document
+          type: string
+          example: 2018-01-05 12:50
+        act:
+          description: a referenced act
+          type: string
+        type:
+          description: a type of reference
+          type: string
+          example: Akty zmieniające
+    ActText:
+      description: An information about a text of an act.
+      type: object
+      properties:
+        fileName:
+          description: a file name
+          type: string
+          example: D20172196.pdf
+        type:
+          description: a type of a text
+          enum:
+          - T
+          - O
+          - U
+          - H
+          - I
+          type: string
+          example: O
+    Directive:
+      description: An European directive.
+      type: object
+      properties:
+        address:
+          description: an identifier of the directive
+          type: string
+          example: 32013R0952
+        title:
+          description: a title of the directive
+          type: string
+          example: Rozporządzenie Parlamentu Europejskiego i Rady (UE) nr 952/2013
+            z dnia 9 października 2013 r. ustanawiające unijny kodeks celny
+        date:
+          format: date
+          description: a date of the directive
+          type: string
+          example: 2013-10-09
+    PrintRef:
+      description: An information about a print and legislative process.
+      type: object
+      properties:
+        term:
+          format: int32
+          description: a term of Sejm when this print was published
+          type: integer
+          example: 8
+        number:
+          description: a number of the print
+          type: string
+          example: "1407"
+        link:
+          description: a link to details of a legislative process
+          type: string
+          example: https://www.sejm.gov.pl/Sejm8.nsf/PrzebiegProc.xsp?nr=1407
+        linkPrintAPI:
+          description: a link to API for print details
+          type: string
+          example: https://api.sejm.gov.pl/sejm/term8/prints/1407
+        linkProcessAPI:
+          description: a link to API for process details
+          type: string
+          example: https://api.sejm.gov.pl/sejm/term8/processes/1407
+    PublishingHouse:
+      description: An information about a publisher.
+      type: object
+      properties:
+        code:
+          description: a unique code of a publisher
+          type: string
+          example: DU
+        shortName:
+          description: a short name used to designate an act
+          type: string
+          example: Dz. U.
+        name:
+          description: a full name of the publisher
+          type: string
+          example: Dziennik Ustaw
+        actsCount:
+          format: int32
+          description: count of acts
+          type: integer
+          example: 123
+        years:
+          description: a list of years for which there are acts
+          uniqueItems: true
+          type: array
+          items:
+            format: int32
+            type: integer
+          example:
+          - 1990
+          - 1991
+          - 1992
+    ReferenceDetailsInfo:
+      description: information about a reference (with act header)
+      type: object
+      properties:
+        act:
+          description: a referenced act
+          type: object
+          allOf:
+          - $ref: '#/components/schemas/ActInfo'
+        art:
+          description: referenced article (optional)
+          type: string
+          example: art. 30a ust. 5
+        date:
+          format: date
+          description: "a date (optional, e.g. for repeal)"
+          type: string
+          example: 2017-01-05
+    ReferenceInfo:
+      description: "information about a reference (without act header, only act ID)"
+      type: object
+      properties:
+        id:
+          description: an ELI address of the referenced act
+          type: string
+          example: DU/2019/1
+        art:
+          description: referenced article (optional)
+          type: string
+          example: art. 30a ust. 5
+        date:
+          format: date
+          description: "a date (optional, e.g. for repeal)"
+          type: string
+          example: 2017-01-05
+    ReferencesDetailsInfo:
+      description: "a map of type -> list of references, example keys: 'Akty uchylają\
+        ce', 'Akty zmieniające', values are type of ReferenceDetailsInfo"
+      type: object
+      additionalProperties:
+        type: array
+        items:
+          $ref: '#/components/schemas/ReferenceDetailsInfo'
+    ReferencesInfo:
+      description: "a map of type -> list of references, example keys: 'Akty uchylają\
+        ce', 'Akty zmieniające', values are type of ReferenceInfo"
+      type: object
+      additionalProperties:
+        type: array
+        items:
+          $ref: '#/components/schemas/ReferenceInfo'
+    SearchDate:
+      enum:
+      - NONE
+      - ON_DAY
+      - BEFORE
+      - AFTER
+      - BETWEEN
+      type: string
+    SortColumn:
+      enum:
+      - publisher
+      - position
+      - title
+      - change
+      type: string
+    SortDir:
+      enum:
+      - asc
+      - desc
+      type: string
+    StatusInForce:
+      enum:
+      - IN_FORCE
+      - NOT_IN_FORCE
+      - UNKNOWN
+      type: string
+    acts:
+      description: A list of acts.
+      type: object
+      properties:
+        items:
+          description: a list of items
+          type: array
+          items:
+            $ref: '#/components/schemas/ActInfo'
+        offset:
+          format: int32
+          description: a starting offset
+          type: integer
+          example: 0
+        count:
+          format: int32
+          description: a number of returned items
+          type: integer
+          example: 20
+        totalCount:
+          format: int32
+          description: total number of items
+          type: integer
+          example: 23
+        searchQuery:
+          description: a search query used to get a list of acts
+          type: object
+          allOf:
+          - $ref: '#/components/schemas/ActQuery'
