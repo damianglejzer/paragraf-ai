@@ -112,3 +112,101 @@ free tier, and non-deterministic.
 
 **Consequences.** Some references are missed, e.g. when the act name follows a long point list.
 The extractor is fast, deterministic and unit-tested.
+
+---
+
+## D7. Models and providers (all free tier), chosen by measurement
+
+**Context.** Requirements: good Polish, structured output, fast enough for a live demo, free.
+The Gemini free tier was probed on 2026-10-18 by calling each model until it returned 429:
+
+| Model | Free-tier limit observed | Latency (thinking minimal) |
+|---|---|---|
+| gemini-3.5-flash | 5 RPM, **20 requests/day** | ~1 s |
+| gemini-3.5-flash-lite | 15 RPM | ~10 s (overloaded) |
+| gemini-2.5-flash-lite | 10 RPM | – |
+| gemini-3.1-flash-lite | ≥16 RPM (no 429 in the probe) | ~1 s |
+| gemma-4-26b-a4b-it | ≥16 RPM (no 429 in the probe), JSON schema supported | ~2.5 s |
+| gemini-embedding-001 / -2 | **100 texts/min** (each batch item counts) | – |
+
+**Decision.**
+- Answers, query rewriting and eval-set generation use `gemini-3.1-flash-lite` with thinking
+  set to "minimal".
+- The citation judge uses `gemma-4-26b-a4b-it`. It is a different model family from the
+  answering model, which reduces self-preference bias in LLM-as-judge.
+- Embeddings use `jina-embeddings-v3` (multilingual, 768-dim Matryoshka, task-specific
+  query/passage adapters). The reranker is `jina-reranker-v2-base-multilingual`. A new Jina key
+  comes with a one-time pool of 10M free tokens, and both endpoints share it.
+- Every vendor is configured in `.env` behind the `Embedder` / `Reranker` / `LLM` protocols, with
+  `fake` implementations for offline CI.
+
+**Alternatives.**
+- Gemini embeddings: the quality is good, but at 100 texts/min indexing even the small corpus
+  takes about 10 minutes, and the daily cap is unknown.
+- Local models (bge-m3, multilingual-e5, mmlw): free and strong for Polish. However, query-time
+  inference has to run on the 512 MB Render instance next to spaCy, which is too tight.
+- jina-reranker-v3: same top results on probes, at about 3x the tokens per call.
+- `gemini-3.5-flash` for answers: stronger reasoning, but 20 requests/day cannot serve a demo.
+
+**Consequences.** Indexing the demo corpus takes about 30 s and about 150k Jina tokens. A query
+costs about 3k reranker tokens, so the pool covers thousands of demo queries. When the pool or a
+Gemini quota runs out, the provider raises `ProviderUnavailable`. The app then degrades: no
+reranker, or full-text search only, or cached answers, plus a friendly "busy" message.
+
+---
+
+## D8. Lemmatizer: spaCy `pl_core_news_sm` (not simplemma)
+
+**Context.** Postgres has no Polish text-search configuration, so lemmas are computed in Python and
+indexed with `to_tsvector('simple', ...)`. The same lemmatizer must run at query time on a 512 MB
+instance.
+
+**Decision.** spaCy `pl_core_news_sm` with the parser and NER disabled.
+
+**Alternatives.** Measured: simplemma reached 426 MB RSS and 3.3 s load time. spaCy reached 194 MB
+and 0.5 s, with context-aware lemmas. Morfeusz2 has better dictionary coverage, but its packaging
+for Python 3.12 is awkward.
+
+**Consequences.** Some lemmas are imperfect (e.g. "kupiyć"). This is consistent between documents
+and queries, so matching still works, and the vector channel compensates.
+
+---
+
+## D9. Small demo corpus
+
+**Context.** Free-tier quotas (D7) and the demo's purpose: a recruiter should see a fast, working
+system, not exhaustive coverage. The parser already handles whole statutes (8.5k provisions across
+7 acts, verified against `/struct`).
+
+**Decision.** Index only selected everyday topics (`backend/paragraf/corpus.py`):
+- Kodeks pracy: employment relationship and termination, working time, leave, limitation;
+- Ustawa o prawach konsumenta: information duties, 14-day withdrawal, non-conforming goods;
+- Kodeks cywilny: limitation periods, lease.
+
+That gives about 850 provisions and 644 retrieval chunks.
+
+**Alternatives.** The full 7-act corpus (6.5k chunks). It would take hours of free-tier embedding
+quota, and eval generation would exceed daily LLM limits.
+
+**Consequences.** Indexing takes seconds and evals finish within the daily free quotas. Questions
+outside these topics are refused, which is itself evaluated (out-of-scope category). Widening the
+scope is a config change followed by re-running ingest and index.
+
+---
+
+## D10. LLM query rewriting before hybrid search
+
+**Context.** Laypeople and statutes use different words ("sklep internetowy" vs "umowa zawarta na
+odległość", "oddać" vs "odstąpić od umowy"). On the probe "Kupiłem buty w sklepie internetowym,
+czy mogę je oddać?", the key provision (UPK art. 27) was not in the top 30 of any retriever.
+
+**Decision.** A small LLM rewrites the question into statutory vocabulary. Both the original and the
+rewritten query run through vector and full-text search, and all four rankings are fused with RRF.
+The reranker then sees the original question together with its rewrite.
+
+**Alternatives.** HyDE (generate a hypothetical provision): heavier, and it risks hallucinated
+legal content in the query. A synonym dictionary: manual and brittle.
+
+**Consequences.** The rewrite adds one call (~1 s, cached per question). In the probe, UPK art. 27
+moved from outside the top 10 to rank 1. Its effect is measured as its own row in the ablation.
+When the LLM is unavailable, search silently uses the original query only.

@@ -1,6 +1,7 @@
 """Build providers from settings (.env). Swapping a vendor is a config change."""
 
 from functools import lru_cache
+from typing import Literal
 
 from paragraf.config import Settings, get_settings
 from paragraf.providers.base import LLM, Embedder, Reranker
@@ -32,18 +33,33 @@ def make_embedder(settings: Settings | None = None) -> Embedder:
             s.embedding_dim,
             _cache("embeddings"),
         )
+    if s.embedding_provider == "jina":
+        from paragraf.providers.jina import JinaEmbedder
+
+        return JinaEmbedder(
+            _require(s.jina_api_key, "JINA_API_KEY"),
+            s.embedding_model,
+            s.embedding_dim,
+            _cache("embeddings"),
+        )
     raise ValueError(f"unknown EMBEDDING_PROVIDER={s.embedding_provider}")
 
 
-def make_llm(settings: Settings | None = None, *, model: str | None = None) -> LLM:
+def make_llm(
+    settings: Settings | None = None, *, role: Literal["answer", "judge"] = "answer"
+) -> LLM:
+    """`answer`: main generation model. `judge`: small fast model (verification, reranking)."""
     s = settings or get_settings()
     if s.llm_provider == "fake":
         return FakeLLM()
     if s.llm_provider == "gemini":
         from paragraf.providers.gemini import GeminiLLM
 
+        model, thinking = (
+            (s.llm_model, s.llm_thinking) if role == "answer" else (s.judge_model, s.judge_thinking)
+        )
         return GeminiLLM(
-            _require(s.gemini_api_key, "GEMINI_API_KEY"), model or s.llm_model, _cache("llm")
+            _require(s.gemini_api_key, "GEMINI_API_KEY"), model, _cache("llm"), thinking or None
         )
     raise ValueError(f"unknown LLM_PROVIDER={s.llm_provider}")
 
@@ -66,5 +82,5 @@ def make_reranker(settings: Settings | None = None) -> Reranker:
         case "llm":
             from paragraf.providers.rerankers import LLMReranker
 
-            return LLMReranker(make_llm(s, model=s.reranker_model))
+            return LLMReranker(make_llm(s, role="judge"))
     raise ValueError(f"unknown RERANKER_PROVIDER={s.reranker_provider}")

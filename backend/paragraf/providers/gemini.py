@@ -1,9 +1,10 @@
 """Google Gemini (free tier) LLM and embedding providers via the `google-genai` SDK."""
 
 import math
+import threading
 import time
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, ClassVar
 
 from google import genai
 from google.genai import errors, types
@@ -11,6 +12,23 @@ from pydantic import BaseModel
 
 from paragraf.providers.base import EmbedTask, LLMResponse, ProviderUnavailable, Usage
 from paragraf.providers.cache import DiskCache
+
+
+class _RateLimiter:
+    """Client-side pacing per model, so parallel workers stay under the free-tier RPM."""
+
+    _locks: ClassVar[dict[str, threading.Lock]] = {}
+    _next_slot: ClassVar[dict[str, float]] = {}
+
+    @classmethod
+    def wait(cls, model: str, rpm: int) -> None:
+        lock = cls._locks.setdefault(model, threading.Lock())
+        with lock:
+            now = time.monotonic()
+            slot = max(now, cls._next_slot.get(model, now))
+            cls._next_slot[model] = slot + 60.0 / rpm
+        if slot > now:
+            time.sleep(slot - now)
 
 
 def _call_with_backoff(fn: Any, *args: Any, attempts: int = 4, **kwargs: Any) -> Any:
@@ -50,7 +68,9 @@ class GeminiEmbedder:
             resp = _call_with_backoff(
                 self._client.models.embed_content,
                 model=self.model,
-                contents=[texts[i] for i in idx],
+                # One Content per text: a plain list of strings is merged into a single
+                # multimodal input by gemini-embedding-2 and yields one vector.
+                contents=[types.Content(parts=[types.Part(text=texts[i])]) for i in idx],
                 config=types.EmbedContentConfig(
                     task_type=task_type, output_dimensionality=self.dim
                 ),
@@ -72,10 +92,22 @@ def _normalize(values: list[float] | None) -> list[float]:
 class GeminiLLM:
     name = "gemini"
 
-    def __init__(self, api_key: str, model: str, cache: DiskCache | None = None) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        cache: DiskCache | None = None,
+        thinking_level: str | None = None,
+        rpm: int = 14,
+    ) -> None:
         self._client = genai.Client(api_key=api_key)
         self.model = model
         self._cache = cache
+        self._rpm = rpm
+        # Gemini 3 thinks by default; "minimal"/"low" keeps latency around 1-3 s.
+        self._thinking = (
+            types.ThinkingConfig(thinking_level=thinking_level) if thinking_level else None
+        )
 
     def complete(
         self,
@@ -100,7 +132,9 @@ class GeminiLLM:
             temperature=temperature,
             response_mime_type="application/json" if json_schema else None,
             response_json_schema=json_schema.model_json_schema() if json_schema else None,
+            thinking_config=self._thinking,
         )
+        _RateLimiter.wait(self.model, self._rpm)
         resp = _call_with_backoff(
             self._client.models.generate_content, model=self.model, contents=prompt, config=config
         )
@@ -118,7 +152,10 @@ class GeminiLLM:
         return result
 
     def stream(self, system: str, prompt: str, *, temperature: float = 0.0) -> Iterator[str]:
-        config = types.GenerateContentConfig(system_instruction=system, temperature=temperature)
+        config = types.GenerateContentConfig(
+            system_instruction=system, temperature=temperature, thinking_config=self._thinking
+        )
+        _RateLimiter.wait(self.model, self._rpm)
         try:
             for chunk in self._client.models.generate_content_stream(
                 model=self.model, contents=prompt, config=config

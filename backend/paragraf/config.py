@@ -16,17 +16,18 @@ class Settings(BaseSettings):
     eli_base_url: str = "https://api.sejm.gov.pl/eli"
 
     llm_provider: str = "fake"
-    llm_model: str = "gemini-2.5-flash"
-    judge_model: str = "gemini-2.5-flash"
+    llm_model: str = "gemini-3.1-flash-lite"
+    llm_thinking: str = "minimal"
+    judge_model: str = "gemma-4-26b-a4b-it"
+    judge_thinking: str = ""
     embedding_provider: str = "fake"
-    embedding_model: str = "gemini-embedding-001"
+    embedding_model: str = "jina-embeddings-v3"
     embedding_dim: int = 768
     reranker_provider: str = "none"
     reranker_model: str = "jina-reranker-v2-base-multilingual"
 
     gemini_api_key: str = ""
     jina_api_key: str = ""
-    cohere_api_key: str = ""
 
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""

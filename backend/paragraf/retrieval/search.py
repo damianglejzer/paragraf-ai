@@ -3,6 +3,7 @@
 All pipelines return `Hit`s whose `ids` are provision ids, so metrics are comparable.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -12,7 +13,8 @@ from pgvector.psycopg import register_vector
 from paragraf.indexing.lemmatize import lemmatize
 from paragraf.providers.base import Embedder, Reranker
 
-Mode = Literal["naive", "vector", "fulltext", "hybrid", "hybrid_rerank"]
+Mode = Literal["naive", "vector", "fulltext", "hybrid", "hybrid_rerank", "full"]
+# full = query rewrite + hybrid (original and rewritten queries) + rerank
 RRF_K = 60
 
 
@@ -140,23 +142,35 @@ class Retriever:
     conn: psycopg.Connection[Any]
     embedder: Embedder
     reranker: Reranker | None = None
+    rewriter: Callable[[str], str | None] | None = None
     candidates: int = 40  # per retriever, before fusion
-    rerank_pool: int = 30  # fused candidates sent to the reranker
+    rerank_pool: int = 25  # fused candidates sent to the reranker
+    last_rewrite: str | None = None
 
     def search(
-        self, query: str, k: int = 8, mode: Mode = "hybrid_rerank", act: str | None = None
+        self, query: str, k: int = 8, mode: Mode = "full", act: str | None = None
     ) -> list[Hit]:
+        self.last_rewrite = None
         if mode == "fulltext":
             return fulltext_search(self.conn, query, k, act)
-        query_vec = self.embedder.embed([query], "query")[0]
         if mode == "naive":
-            return naive_search(self.conn, query_vec, k)
+            return naive_search(self.conn, self.embedder.embed([query], "query")[0], k)
         if mode == "vector":
-            return vector_search(self.conn, query_vec, k, act)
-        fused = rrf_fuse(
-            vector_search(self.conn, query_vec, self.candidates, act),
-            fulltext_search(self.conn, query, self.candidates, act),
-        )
+            return vector_search(self.conn, self.embedder.embed([query], "query")[0], k, act)
+
+        queries = [query]
+        if mode == "full" and self.rewriter is not None:
+            rewritten = self.rewriter(query)
+            if rewritten and rewritten != query:
+                self.last_rewrite = rewritten
+                queries.append(rewritten)
+        vectors = self.embedder.embed(queries, "query")
+        rankings: list[list[Hit]] = []
+        for q, vec in zip(queries, vectors, strict=True):
+            rankings.append(vector_search(self.conn, vec, self.candidates, act))
+            rankings.append(fulltext_search(self.conn, q, self.candidates, act))
+        fused = rrf_fuse(*rankings)
         if mode == "hybrid" or self.reranker is None:
             return fused[:k]
-        return rerank_hits(query, fused[: self.rerank_pool], self.reranker, k)
+        rerank_query = f"{query}\n{self.last_rewrite}" if self.last_rewrite else query
+        return rerank_hits(rerank_query, fused[: self.rerank_pool], self.reranker, k)

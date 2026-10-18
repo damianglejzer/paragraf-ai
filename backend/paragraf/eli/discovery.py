@@ -18,7 +18,7 @@ class TargetAct:
     short_name: str  # display name, e.g. "Kodeks pracy"
 
 
-TARGET_ACTS: list[TargetAct] = [
+ALL_ACTS: list[TargetAct] = [
     TargetAct("KP", "Kodeks pracy", "Kodeks pracy"),
     TargetAct("KC", "Kodeks cywilny", "Kodeks cywilny"),
     TargetAct("UPK", "o prawach konsumenta", "Ustawa o prawach konsumenta"),
@@ -27,6 +27,8 @@ TARGET_ACTS: list[TargetAct] = [
     TargetAct("KRO", "Kodeks rodzinny i opiekuńczy", "Kodeks rodzinny i opiekuńczy"),
     TargetAct("KW", "Kodeks wykroczeń", "Kodeks wykroczeń"),
 ]
+# Acts parsed by the pipeline; the indexed demo corpus is narrowed further in corpus.py
+TARGET_ACTS: list[TargetAct] = [a for a in ALL_ACTS if a.code in ("KP", "KC", "UPK")]
 
 _TITLE_PREFIX = "jednolitego tekstu ustawy"
 

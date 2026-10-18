@@ -7,6 +7,7 @@ import logging
 from collections import Counter
 
 from paragraf.config import get_settings
+from paragraf.corpus import in_scope
 from paragraf.db import repository as repo
 from paragraf.eli.client import EliClient
 from paragraf.eli.discovery import TARGET_ACTS, discover
@@ -53,18 +54,20 @@ def run() -> None:
                 title=info.title,
                 announcement_date=info.announcement_date,
             )
-            provisions = parse_act_html(client.get_text_html(info.eli), act)
+            parsed = parse_act_html(client.get_text_html(info.eli), act)
             try:
-                matched, expected = check_against_struct(provisions, client.get_struct(info.eli))
+                matched, expected = check_against_struct(parsed, client.get_struct(info.eli))
                 log.info("%s: struct check %d/%d articles matched", act.code, matched, expected)
             except Exception as exc:  # struct is a sanity check only
                 log.warning("%s: struct check skipped (%s)", act.code, exc)
+            provisions = [p for p in parsed if in_scope(p.act_code, p.hierarchy)]
             levels = Counter(p.level for p in provisions)
             log.info(
-                "%s (%s): %d provisions %s, %d chunks",
+                "%s (%s): %d of %d provisions in demo scope %s, %d chunks",
                 act.code,
                 act.eli,
                 len(provisions),
+                len(parsed),
                 dict(levels),
                 sum(p.is_chunk for p in provisions),
             )
@@ -86,6 +89,7 @@ def run() -> None:
 
     with repo.connect() as conn:
         repo.init_schema(conn, settings.embedding_dim)
+        conn.execute("DELETE FROM acts WHERE NOT (code = ANY(%s))", ([a.code for a in acts],))
         for act in acts:
             repo.upsert_act(conn, act)
             repo.replace_provisions(
