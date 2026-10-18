@@ -20,6 +20,7 @@ CORPUS_SCOPE: dict[str, list[tuple[str, ...]]] = {
         ("Rozdział 5a",),  # Niezgodność towaru z umową
     ],
     "KC": [
+        ("Księga I", "Część ogólna", "Tytuł V"),  # Terminy (used by calculate_deadline)
         ("Księga I", "Część ogólna", "Tytuł VI"),  # Przedawnienie roszczeń
         ("Księga III", "Tytuł XVII", "Dział I"),  # Najem
     ],
@@ -33,6 +34,7 @@ TOPICS = [
     "reklamacja towaru niezgodnego z umową",
     "najem mieszkania",
     "przedawnienie roszczeń",
+    "obliczanie terminów",
 ]
 
 

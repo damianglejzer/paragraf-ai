@@ -102,7 +102,7 @@ def test_drop_wrong_removes_markers_and_renumbers() -> None:
     table = {k: {"id": k, "citation": k, "text": k.lower()} for k in "ABC"}
     checks, _ = verify_citations(answer.citations, table.get, judge)
     cleaned = drop_wrong(answer, checks)
-    assert cleaned.answer == "Masz 26 dni urlopu [1]. Urlop jest płatny . Przysługuje co roku [2]."
+    assert cleaned.answer == "Masz 26 dni urlopu [1]. Urlop jest płatny. Przysługuje co roku [2]."
     assert [c.provision_id for c in cleaned.citations] == ["A", "C"]
 
 

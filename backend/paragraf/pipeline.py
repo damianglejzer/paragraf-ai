@@ -3,6 +3,7 @@
 Used by the evaluation scripts directly and by the agent as its core answering step.
 """
 
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -108,4 +109,5 @@ def drop_wrong(answer: Answer, checks: list[CitationCheck]) -> Answer:
     for c in checks:
         c.index = renumber.get(c.index, c.index)
     citations = [answer.citations[i - 1] for i in keep if i - 1 < len(answer.citations)]
-    return answer.model_copy(update={"answer": " ".join(text.split()), "citations": citations})
+    text = re.sub(r"\s+([.,;:!?])", r"\1", " ".join(text.split()))
+    return answer.model_copy(update={"answer": text, "citations": citations})

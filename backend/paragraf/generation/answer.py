@@ -65,8 +65,10 @@ def format_context(hits: list[Hit]) -> str:
     return "\n\n".join(blocks)
 
 
-def build_prompt(question: str, hits: list[Hit], history: str = "") -> str:
+def build_prompt(question: str, hits: list[Hit], history: str = "", tool_results: str = "") -> str:
     parts = [f"KONTEKST:\n{format_context(hits)}"]
+    if tool_results:
+        parts.append(f"WYNIKI NARZĘDZI (obliczenia deterministyczne):\n{tool_results}")
     if history:
         parts.append(f"WCZEŚNIEJSZA ROZMOWA:\n{history}")
     parts.append(f"PYTANIE UŻYTKOWNIKA:\n<pytanie>{question}</pytanie>")
@@ -74,7 +76,7 @@ def build_prompt(question: str, hits: list[Hit], history: str = "") -> str:
 
 
 def generate_answer(
-    llm: LLM, question: str, hits: list[Hit], history: str = ""
+    llm: LLM, question: str, hits: list[Hit], history: str = "", tool_results: str = ""
 ) -> tuple[Answer, LLMResponse]:
     if not hits:
         return (
@@ -84,7 +86,9 @@ def generate_answer(
             ),
             LLMResponse(text="", model=llm.model),
         )
-    resp = llm.complete(SYSTEM_PROMPT, build_prompt(question, hits, history), json_schema=Answer)
+    resp = llm.complete(
+        SYSTEM_PROMPT, build_prompt(question, hits, history, tool_results), json_schema=Answer
+    )
     answer = Answer.model_validate_json(resp.text)
     # Citations to ids outside the context are kept on purpose: verification flags them.
     answer.citations = [c for c in answer.citations if c.provision_id.strip()]

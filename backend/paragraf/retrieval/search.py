@@ -148,8 +148,15 @@ class Retriever:
     last_rewrite: str | None = None
 
     def search(
-        self, query: str, k: int = 8, mode: Mode = "full", act: str | None = None
+        self,
+        query: str,
+        k: int = 8,
+        mode: Mode = "full",
+        act: str | None = None,
+        rewrite: str | None = None,
     ) -> list[Hit]:
+        """`rewrite`: an already rewritten query (e.g. from the agent planner) - skips the
+        rewriter call in "full" mode."""
         self.last_rewrite = None
         if mode == "fulltext":
             return fulltext_search(self.conn, query, k, act)
@@ -159,8 +166,8 @@ class Retriever:
             return vector_search(self.conn, self.embedder.embed([query], "query")[0], k, act)
 
         queries = [query]
-        if mode == "full" and self.rewriter is not None:
-            rewritten = self.rewriter(query)
+        if mode == "full" and (rewrite or self.rewriter is not None):
+            rewritten = rewrite or (self.rewriter(query) if self.rewriter else None)
             if rewritten and rewritten != query:
                 self.last_rewrite = rewritten
                 queries.append(rewritten)
