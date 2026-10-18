@@ -46,6 +46,21 @@ CREATE TABLE IF NOT EXISTS provision_refs (
 );
 CREATE INDEX IF NOT EXISTS provision_refs_target_idx ON provision_refs (target_id);
 
+-- Demo protection: answer cache and daily request budget
+CREATE TABLE IF NOT EXISTS answer_cache (
+    question_key text PRIMARY KEY,
+    question     text NOT NULL,
+    payload      jsonb NOT NULL,
+    hits         integer NOT NULL DEFAULT 0,
+    created_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS usage_daily (
+    day       date PRIMARY KEY,
+    requests  integer NOT NULL DEFAULT 0,
+    tokens    bigint NOT NULL DEFAULT 0,
+    cost_usd  double precision NOT NULL DEFAULT 0
+);
+
 -- Baseline for the ablation study: fixed-size chunks, vectors only
 CREATE TABLE IF NOT EXISTS naive_chunks (
     id         serial PRIMARY KEY,

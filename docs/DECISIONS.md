@@ -210,3 +210,35 @@ legal content in the query. A synonym dictionary: manual and brittle.
 **Consequences.** The rewrite adds one call (~1 s, cached per question). In the probe, UPK art. 27
 moved from outside the top 10 to rank 1. Its effect is measured as its own row in the ablation.
 When the LLM is unavailable, search silently uses the original query only.
+
+---
+
+## D11. Judge model: Gemini Flash-Lite, not Gemma (revises D7)
+
+**Context.** D7 used `gemma-4-26b-a4b-it` as the citation judge to avoid a model judging its own
+family. In practice the free Gemma endpoint was unreliable. Some calls hung for minutes, which
+stalled eval-set generation. Explanations degenerated ("wprost wprost ... gwarant```json"), and
+JSON came wrapped in code fences.
+
+**Decision.** The judge is `gemini-3.1-flash-lite` with thinking set to "low", under a separate
+prompt that sees only the provision text and the claim, never the user question or the answer.
+All Gemini calls get a 30 s HTTP timeout, and JSON output is extracted tolerantly.
+
+**Alternatives.** `gemma-4-31b-it` returned 503 (overloaded). `gemini-3.5-flash` allows only 20
+requests/day.
+
+**Consequences.** The judge takes about 1–2 s and its explanations read naturally. Self-preference
+bias is mitigated, not eliminated: the deterministic checks (existence, fuzzy quote match) do not
+depend on any LLM, and a cross-family judge remains a configurable option (`JUDGE_MODEL`).
+
+---
+
+## D12. "Cost per query" reported as equivalent paid-tier cost
+
+**Context.** The evaluation requires cost per query, but the demo runs on free tiers ($0).
+
+**Decision.** Track tokens per stage and multiply by list prices (`providers/usage.py`). The UI
+labels the result explicitly: "≈ $X w płatnym planie (demo: $0)".
+
+**Consequences.** The number shows what the architecture would cost in production (about
+$0.001 per question) without suggesting the demo incurs charges.

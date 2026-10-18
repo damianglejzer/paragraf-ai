@@ -92,3 +92,11 @@ def test_rate_limiter_allows_burst_then_throttles(monkeypatch: object) -> None:
     assert sleeps == []  # burst within the limit
     g._RateLimiter.wait("test-model", rpm=3)
     assert len(sleeps) == 1 and 59 < sleeps[0] <= 60
+
+
+def test_extract_json_strips_fences_and_trailing_text() -> None:
+    from paragraf.providers.gemini import extract_json
+
+    assert extract_json('```json\n{"a": 1}\n```') == '{"a": 1}'
+    assert extract_json('{"a": {"b": [1, 2]}}\n```') == '{"a": {"b": [1, 2]}}'
+    assert extract_json("bez json") == "bez json"

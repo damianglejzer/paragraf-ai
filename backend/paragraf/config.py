@@ -18,8 +18,8 @@ class Settings(BaseSettings):
     llm_provider: str = "fake"
     llm_model: str = "gemini-3.1-flash-lite"
     llm_thinking: str = "minimal"
-    judge_model: str = "gemma-4-26b-a4b-it"
-    judge_thinking: str = ""
+    judge_model: str = "gemini-3.1-flash-lite"
+    judge_thinking: str = "low"
     embedding_provider: str = "fake"
     embedding_model: str = "jina-embeddings-v3"
     embedding_dim: int = 768

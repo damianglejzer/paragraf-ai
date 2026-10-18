@@ -19,6 +19,10 @@ dependencies = [
     "rapidfuzz>=3.14.6",
     "langgraph>=1.2.16",
     "mcp>=2.3.0",
+    "fastapi>=0.143.5",
+    "uvicorn[standard]>=0.54.0",
+    "sse-starlette>=3.5.0",
+    "langfuse>=5.0.2",
 ]
 
 [dependency-groups]

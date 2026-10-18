@@ -1,5 +1,6 @@
 """Google Gemini (free tier) LLM and embedding providers via the `google-genai` SDK."""
 
+import json
 import math
 import threading
 import time
@@ -62,7 +63,7 @@ class GeminiEmbedder:
     BATCH = 100
 
     def __init__(self, api_key: str, model: str, dim: int, cache: DiskCache | None = None) -> None:
-        self._client = genai.Client(api_key=api_key)
+        self._client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=30_000))
         self.model = model
         self.dim = dim
         self._cache = cache
@@ -91,6 +92,21 @@ class GeminiEmbedder:
         return [found[k] for k in keys]
 
 
+def extract_json(text: str) -> str:
+    """First JSON value in `text`. Some models (Gemma) wrap JSON in ``` fences or add a tail."""
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = stripped.split("\n", 1)[1] if "\n" in stripped else stripped[3:]
+    start = min((i for i in (stripped.find("{"), stripped.find("[")) if i >= 0), default=-1)
+    if start < 0:
+        return stripped
+    try:
+        _, end = json.JSONDecoder().raw_decode(stripped[start:])
+    except json.JSONDecodeError:
+        return stripped
+    return stripped[start : start + end]
+
+
 def _normalize(values: list[float] | None) -> list[float]:
     # Truncated (Matryoshka) Gemini embeddings are not unit-length; normalize for cosine/IP.
     vals = values or []
@@ -109,7 +125,7 @@ class GeminiLLM:
         thinking_level: str | None = None,
         rpm: int = 14,
     ) -> None:
-        self._client = genai.Client(api_key=api_key)
+        self._client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=30_000))
         self.model = model
         self._cache = cache
         self._rpm = rpm
@@ -150,8 +166,9 @@ class GeminiLLM:
             self._client.models.generate_content, model=self.model, contents=prompt, config=config
         )
         meta = resp.usage_metadata
+        text = resp.text or ""
         result = LLMResponse(
-            text=resp.text or "",
+            text=extract_json(text) if json_schema else text,
             model=self.model,
             usage=Usage(
                 input_tokens=(meta.prompt_token_count or 0) if meta else 0,
