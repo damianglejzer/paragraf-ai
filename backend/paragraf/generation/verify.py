@@ -41,7 +41,7 @@ class CitationCheck(BaseModel):
 class _JudgeItem(BaseModel):
     index: int
     verdict: Verdict
-    explanation: str = Field(description="Jedno krótkie zdanie po polsku")
+    explanation: str = Field(default="", description="Jedno krótkie zdanie po polsku")
 
 
 class _JudgeOutput(BaseModel):

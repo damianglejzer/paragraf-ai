@@ -3,6 +3,7 @@
 import httpx
 from pydantic import BaseModel, Field
 
+from paragraf.providers import usage
 from paragraf.providers.base import LLM, ProviderUnavailable
 from paragraf.providers.cache import DiskCache
 
@@ -42,7 +43,9 @@ class JinaReranker:
         if resp.status_code in (402, 429):
             raise ProviderUnavailable(f"Jina reranker unavailable: {resp.status_code}")
         resp.raise_for_status()
-        result = [(r["index"], r["relevance_score"]) for r in resp.json()["results"]]
+        body = resp.json()
+        usage.record(self.model, int(body.get("usage", {}).get("total_tokens", 0)))
+        result = [(r["index"], r["relevance_score"]) for r in body["results"]]
         if self._cache:
             self._cache.set(key, result)
         return result

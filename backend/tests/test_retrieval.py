@@ -79,3 +79,16 @@ def test_disk_cache_roundtrip(tmp_path: Path) -> None:
     assert cache.get(key) is None
     cache.set(key, [0.1, 0.2])
     assert cache.get_many([key, "missing"]) == {key: [0.1, 0.2]}
+
+
+def test_rate_limiter_allows_burst_then_throttles(monkeypatch: object) -> None:
+    import paragraf.providers.gemini as g
+
+    sleeps: list[float] = []
+    monkeypatch.setattr(g.time, "sleep", lambda s: sleeps.append(s))  # type: ignore[attr-defined]
+    g._RateLimiter._calls.pop("test-model", None)
+    for _ in range(3):
+        g._RateLimiter.wait("test-model", rpm=3)
+    assert sleeps == []  # burst within the limit
+    g._RateLimiter.wait("test-model", rpm=3)
+    assert len(sleeps) == 1 and 59 < sleeps[0] <= 60

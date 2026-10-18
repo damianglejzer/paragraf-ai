@@ -2,6 +2,7 @@
 
 import httpx
 
+from paragraf.providers import usage
 from paragraf.providers.base import EmbedTask, ProviderUnavailable
 from paragraf.providers.cache import DiskCache
 
@@ -37,7 +38,9 @@ class JinaEmbedder:
             if resp.status_code in (402, 429):
                 raise ProviderUnavailable(f"Jina embeddings unavailable: {resp.status_code}")
             resp.raise_for_status()
-            data = sorted(resp.json()["data"], key=lambda d: d["index"])
+            body = resp.json()
+            usage.record(self.model, int(body.get("usage", {}).get("total_tokens", 0)))
+            data = sorted(body["data"], key=lambda d: d["index"])
             new = {keys[i]: d["embedding"] for i, d in zip(idx, data, strict=True)}
             found.update(new)
             if self._cache:

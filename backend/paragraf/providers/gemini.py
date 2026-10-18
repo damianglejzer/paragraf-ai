@@ -3,6 +3,7 @@
 import math
 import threading
 import time
+from collections import deque
 from collections.abc import Iterator
 from typing import Any, ClassVar
 
@@ -10,25 +11,33 @@ from google import genai
 from google.genai import errors, types
 from pydantic import BaseModel
 
+from paragraf.providers import usage
 from paragraf.providers.base import EmbedTask, LLMResponse, ProviderUnavailable, Usage
 from paragraf.providers.cache import DiskCache
 
 
 class _RateLimiter:
-    """Client-side pacing per model, so parallel workers stay under the free-tier RPM."""
+    """Sliding-window pacing per model: at most `rpm` calls in any 60 s window.
+
+    Bursts are allowed (a single user request makes 2-3 quick calls); only sustained load
+    such as eval runs gets throttled below the free-tier RPM.
+    """
 
     _locks: ClassVar[dict[str, threading.Lock]] = {}
-    _next_slot: ClassVar[dict[str, float]] = {}
+    _calls: ClassVar[dict[str, deque[float]]] = {}
 
     @classmethod
     def wait(cls, model: str, rpm: int) -> None:
         lock = cls._locks.setdefault(model, threading.Lock())
         with lock:
+            calls = cls._calls.setdefault(model, deque())
             now = time.monotonic()
-            slot = max(now, cls._next_slot.get(model, now))
-            cls._next_slot[model] = slot + 60.0 / rpm
-        if slot > now:
-            time.sleep(slot - now)
+            while calls and now - calls[0] >= 60.0:
+                calls.popleft()
+            delay = 60.0 - (now - calls[0]) if len(calls) >= rpm else 0.0
+            calls.append(now + delay)
+        if delay > 0:
+            time.sleep(delay)
 
 
 def _call_with_backoff(fn: Any, *args: Any, attempts: int = 4, **kwargs: Any) -> Any:
@@ -126,7 +135,9 @@ class GeminiLLM:
             temperature,
         )
         if self._cache and (hit := self._cache.get(key)):
-            return LLMResponse.model_validate({**hit, "cached": True})
+            cached = LLMResponse.model_validate({**hit, "cached": True})
+            usage.record(self.model, cached.usage.input_tokens, cached.usage.output_tokens, True)
+            return cached
         config = types.GenerateContentConfig(
             system_instruction=system,
             temperature=temperature,
@@ -147,6 +158,7 @@ class GeminiLLM:
                 output_tokens=(meta.candidates_token_count or 0) if meta else 0,
             ),
         )
+        usage.record(self.model, result.usage.input_tokens, result.usage.output_tokens)
         if self._cache:
             self._cache.set(key, result.model_dump())
         return result
