@@ -221,7 +221,7 @@ def run_agent_sync(
                 state["steps"] = steps
             payload = build_payload(state, usage, (time.perf_counter() - started) * 1000)
             protection.record_usage(conn, usage.total_tokens, usage.cost_usd)
-            if not history:
+            if not history and protection.is_cacheable(payload):
                 protection.put_cached(conn, question, payload)
         trace_id = observability.record_trace(question, payload, payload["steps"], usage)
         payload["trace_id"] = trace_id

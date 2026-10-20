@@ -242,3 +242,31 @@ labels the result explicitly: "≈ $X w płatnym planie (demo: $0)".
 
 **Consequences.** The number shows what the architecture would cost in production (about
 $0.001 per question) without suggesting the demo incurs charges.
+
+---
+
+## D13. Handling false refusals: no cached refusals, ambiguity-aware planner, one retry
+
+**Context.** In manual testing, "po jakim czasie pracy przysługuje mi dodatkowy urlop" was
+rewritten by the planner as "nabycie prawa do *pierwszego* urlopu". Retrieval followed the wrong
+lead (KP art. 153) and missed art. 154 § 1. The answering model then correctly refused ("no basis
+in the provided provisions"). The refusal was cached, so every repeat replayed the error.
+
+**Decision.**
+1. Only full answers with citations are cached. Refusals and clarifying questions are not, and
+   cached non-answers are ignored on read.
+2. The planner prompt requires the rewrite to keep the question's meaning. When a term can mean
+   different legal institutions, the planner asks a clarifying question that lists the options
+   (with "dodatkowy urlop" as a worked example).
+3. A `retry` node: when the answer is a refusal although retrieval returned provisions, search
+   once more with the user's original wording (hybrid + rerank, no rewrite), merge the results
+   and answer again. At most one retry per question.
+
+**Alternatives.** Dropping the rewrite altogether: D10 showed it is a large net win.
+Always searching with both wordings: that already happens in "full" mode, yet a misleading
+rewrite still dominates the fused ranking.
+
+**Consequences.** A refusal now costs at most one extra retrieval and one extra answer call, and
+only in the refusal case. A wrong refusal can no longer stick in the cache. The question that
+triggered this now gets a clarifying question with both meanings. The false-refusal rate is
+tracked in the generation eval (`false_refusal_rate`).

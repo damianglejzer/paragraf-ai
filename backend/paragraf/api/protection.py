@@ -38,9 +38,17 @@ def question_key(question: str) -> str:
     return " ".join(text.split())
 
 
+def is_cacheable(payload: dict[str, Any]) -> bool:
+    """Only full answers are cached. A refusal or clarifying question may stem from a planner
+    or retrieval miss; caching it would replay the same mistake on every repeat of the question.
+    """
+    return payload.get("status") == "answer" and bool(payload.get("citations"))
+
+
 def get_cached(conn: psycopg.Connection[Any], question: str) -> dict[str, Any] | None:
     row = conn.execute(
-        "UPDATE answer_cache SET hits = hits + 1 WHERE question_key = %s RETURNING payload",
+        "UPDATE answer_cache SET hits = hits + 1 "
+        "WHERE question_key = %s AND payload->>'status' = 'answer' RETURNING payload",
         (question_key(question),),
     ).fetchone()
     conn.commit()

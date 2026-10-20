@@ -113,3 +113,81 @@ def test_search_path_answers_and_verifies(monkeypatch: pytest.MonkeyPatch) -> No
     assert [s["node"] for s in state["steps"]] == ["plan", "gather", "expand", "answer", "verify"]
     assert state["checks"][0].status == "verified"
     assert state["answer"].answer == "Przysługuje 26 dni urlopu [1]."
+
+
+ANSWER_OK = {
+    "status": "answer",
+    "answer": "Przysługuje 26 dni urlopu [1].",
+    "citations": [
+        {
+            "provision_id": "KP:art_154:par_1",
+            "quote": "26 dni - jeżeli pracownik jest zatrudniony co najmniej 10 lat",
+            "claim": "Po 10 latach przysługuje 26 dni urlopu.",
+        }
+    ],
+}
+REFUSAL = {"status": "refuse", "answer": "Brak podstawy w przepisach.", "citations": []}
+
+
+def sequenced(plan: dict[str, Any], answers: list[dict[str, Any]]) -> FakeLLM:
+    """Planner returns `plan`; successive answer calls return `answers` in order."""
+    remaining = list(answers)
+
+    def respond(system: str, prompt: str) -> str:
+        if "planistą" in system:
+            return json.dumps(plan)
+        return json.dumps(remaining.pop(0) if len(remaining) > 1 else remaining[0])
+
+    return FakeLLM(responder=respond)
+
+
+def test_refusal_triggers_one_retry_with_original_question(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import paragraf.agent.graph as graph
+
+    monkeypatch.setattr(
+        graph,
+        "_lookup",
+        lambda _tk, pid: {
+            "id": pid,
+            "citation": "art. 154 § 1 KP",
+            "text": StubRetriever().search("")[0].text,
+        },
+    )
+    llm = sequenced(
+        {"action": "search", "search_query": "nabycie prawa do pierwszego urlopu"},
+        [REFUSAL, ANSWER_OK],
+    )
+    judge = FakeLLM(
+        responder=lambda _s, _p: json.dumps({"items": [{"index": 1, "verdict": "supports"}]})
+    )
+    state = agent(llm, judge).run("Po jakim czasie pracy przysługuje mi dodatkowy urlop?")
+    assert [s["node"] for s in state["steps"]] == [
+        "plan",
+        "gather",
+        "expand",
+        "answer",
+        "retry",
+        "answer",
+        "verify",
+    ]
+    assert state["answer"].status == "answer"
+
+
+def test_retry_happens_at_most_once() -> None:
+    llm = sequenced({"action": "search", "search_query": "coś"}, [REFUSAL])
+    state = agent(llm).run("Pytanie bez podstawy")
+    nodes = [s["node"] for s in state["steps"]]
+    assert nodes.count("retry") == 1
+    assert nodes[-1] == "answer"
+    assert state["answer"].status == "refuse"
+
+
+def test_only_full_answers_are_cached() -> None:
+    from paragraf.api.protection import is_cacheable
+
+    assert is_cacheable({"status": "answer", "citations": [{"index": 1}]})
+    assert not is_cacheable({"status": "answer", "citations": []})
+    assert not is_cacheable({"status": "refuse", "citations": []})
+    assert not is_cacheable({"status": "clarify", "citations": []})
