@@ -270,3 +270,22 @@ rewrite still dominates the fused ranking.
 only in the refusal case. A wrong refusal can no longer stick in the cache. The question that
 triggered this now gets a clarifying question with both meanings. The false-refusal rate is
 tracked in the generation eval (`false_refusal_rate`).
+
+---
+
+## D14. Lexical ranking: Postgres `ts_rank_cd`, not BM25
+
+**Context.** The lexical half of hybrid retrieval was labelled "BM25" in the UI and in the eval
+config, but the implementation is PostgreSQL full-text search: lemmas in a `tsvector('simple')`,
+a GIN index, and `ts_rank_cd` for ranking (cover density, normalized by log of document length).
+
+**Decision.** Name it accurately everywhere: "full-text (Postgres `ts_rank_cd`)".
+
+**Alternatives.** True BM25 adds IDF (rare terms weigh more) and term-frequency saturation. It can
+be computed in Python over the same lemmas (e.g. `bm25s`), or with a Postgres extension
+(e.g. ParadeDB `pg_search`, availability on Neon to be checked). That is a candidate improvement,
+to be justified by an ablation row "ts_rank_cd vs BM25".
+
+**Consequences.** `ts_rank_cd` treats common words ("pracownik") like rare ones ("wypoczynkowy"),
+which hurts long natural-language questions. RRF fusion with the vector ranking and the reranker
+mitigate this.

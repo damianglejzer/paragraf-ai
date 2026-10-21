@@ -49,7 +49,7 @@ CONFIGS: dict[str, GenConfig] = {
     c.name: c
     for c in [
         GenConfig("naive", "Naive RAG (fixed-size chunks, vectors only)", "naive", False),
-        GenConfig("hybrid", "Structural chunks + hybrid (BM25 + vectors, RRF)", "hybrid", False),
+        GenConfig("hybrid", "Structural chunks + hybrid (full-text + vectors)", "hybrid", False),
         GenConfig("hybrid_rerank", "+ reranker", "hybrid_rerank", False),
         GenConfig("full", "+ query rewriting", "full", False),
         GenConfig("full_verified", "+ citation verification", "full", True),

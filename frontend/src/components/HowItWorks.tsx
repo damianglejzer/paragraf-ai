@@ -44,7 +44,7 @@ function Diagram() {
 
       <text x="970" y="133" textAnchor="end" fontSize="11" fontWeight="600" fill="var(--gold)" letterSpacing="1.5">ZAPYTANIE (ONLINE) · AGENT LANGGRAPH</text>
       {box(10, 140, 150, "Planer (LLM)", "dopytaj / odmów / szukaj")}
-      {box(195, 140, 175, "Retrieval hybrydowy", "BM25 + wektory + RRF", true)}
+      {box(195, 140, 175, "Retrieval hybrydowy", "pełnotekst + wektory + RRF", true)}
       {box(405, 140, 140, "Reranker", "cross-encoder Jina")}
       {box(580, 140, 170, "Odpowiedź (LLM)", "structured output + cytaty")}
       {box(785, 140, 185, "Weryfikacja cytatów", "istnieje · cytat · popiera?", true)}
@@ -89,7 +89,7 @@ export function HowItWorks() {
 
         <div className="grid-3">
           <div className="card info"><h3><Database size={16} /> Chunking strukturalny</h3><p>Jednostką jest artykuł / § / ustęp z pełną ścieżką (np. „KP, Dział VII, Rozdział I, art. 154 § 1”). Parser zgadza się w 100% z endpointem <code>/struct</code> API ELI.</p></div>
-          <div className="card info"><h3><Zap size={16} /> Retrieval hybrydowy</h3><p>Pełnotekstowe wyszukiwanie po lematach (spaCy, Postgres <code>simple</code>) + wektory (pgvector), fuzja RRF, przepisanie pytania na język ustaw i reranker cross-encoder.</p></div>
+          <div className="card info"><h3><Zap size={16} /> Retrieval hybrydowy</h3><p>Pełnotekstowe wyszukiwanie po lematach (spaCy, Postgres <code>simple</code>, ranking <code>ts_rank_cd</code>) + wektory (pgvector), fuzja RRF, przepisanie pytania na język ustaw i reranker cross-encoder.</p></div>
           <div className="card info"><h3><Shield size={16} /> Weryfikacja cytatów</h3><p>Dla każdego cytatu: czy przepis istnieje w bazie, czy cytowany fragment naprawdę w nim jest (fuzzy match) i czy popiera twierdzenie — ocenia osobny sędzia LLM, który widzi tylko treść przepisu i twierdzenie.</p></div>
         </div>
 
