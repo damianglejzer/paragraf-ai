@@ -1,0 +1,278 @@
+import { useEffect, useState } from "react";
+
+type NodeId =
+  | "start" | "plan" | "respond" | "endTop" | "gather" | "expand" | "answer" | "retry" | "verify" | "endBottom";
+type Kind = "llm" | "tool" | "plain" | "terminal";
+
+interface GNode { id: NodeId; x: number; y: number; w: number; h: number; kind: Kind; name: string; sub: string }
+interface GEdge {
+  id: string; from: NodeId; to: NodeId; d: string; conditional?: boolean;
+  label?: string; lx?: number; ly?: number; anchor?: "start" | "middle" | "end";
+}
+interface Step { node: NodeId; edge?: string; out: string }
+interface Scenario { id: string; label: string; question: string; note?: string; steps: Step[] }
+
+const NODES: GNode[] = [
+  { id: "start", x: 18, y: 178, w: 40, h: 40, kind: "terminal", name: "START", sub: "" },
+  { id: "plan", x: 70, y: 170, w: 130, h: 56, kind: "llm", name: "plan", sub: "decyzja + przepisanie" },
+  { id: "respond", x: 340, y: 40, w: 200, h: 56, kind: "plain", name: "respond_directly", sub: "dopytanie albo odmowa" },
+  { id: "endTop", x: 590, y: 48, w: 40, h: 40, kind: "terminal", name: "END", sub: "" },
+  { id: "gather", x: 340, y: 170, w: 130, h: 56, kind: "tool", name: "gather", sub: "szukanie + narzędzia" },
+  { id: "expand", x: 510, y: 170, w: 120, h: 56, kind: "tool", name: "expand", sub: "odesłania" },
+  { id: "answer", x: 670, y: 170, w: 120, h: 56, kind: "llm", name: "answer", sub: "odpowiedź + cytaty" },
+  { id: "retry", x: 670, y: 290, w: 120, h: 56, kind: "tool", name: "retry", sub: "szukaj jeszcze raz" },
+  { id: "verify", x: 865, y: 170, w: 110, h: 56, kind: "llm", name: "verify", sub: "sędzia cytatów" },
+  { id: "endBottom", x: 900, y: 298, w: 40, h: 40, kind: "terminal", name: "END", sub: "" },
+];
+const N = Object.fromEntries(NODES.map((n) => [n.id, n])) as Record<NodeId, GNode>;
+
+const EDGES: GEdge[] = [
+  { id: "start-plan", from: "start", to: "plan", d: "M58 198 H68" },
+  { id: "plan-respond", from: "plan", to: "respond", d: "M135 170 V68 H338", conditional: true,
+    label: "clarify · refuse", lx: 143, ly: 120, anchor: "start" },
+  { id: "respond-end", from: "respond", to: "endTop", d: "M540 68 H588" },
+  { id: "plan-gather", from: "plan", to: "gather", d: "M200 198 H338", conditional: true,
+    label: "search · lookup · deadline", lx: 269, ly: 216 },
+  { id: "gather-expand", from: "gather", to: "expand", d: "M470 198 H508" },
+  { id: "expand-answer", from: "expand", to: "answer", d: "M630 198 H668" },
+  { id: "answer-verify", from: "answer", to: "verify", d: "M790 198 H863", conditional: true,
+    label: "odpowiedź", lx: 826, ly: 216 },
+  { id: "answer-retry", from: "answer", to: "retry", d: "M705 226 V288", conditional: true,
+    label: "odmowa (1×)", lx: 698, ly: 262, anchor: "end" },
+  { id: "retry-answer", from: "retry", to: "answer", d: "M755 290 V228", label: "ponów", lx: 762, ly: 262, anchor: "start" },
+  { id: "answer-end", from: "answer", to: "endBottom", d: "M790 218 C 830 250, 860 300, 898 316", conditional: true,
+    label: "inne", lx: 836, ly: 282, anchor: "end" },
+  { id: "verify-end", from: "verify", to: "endBottom", d: "M920 226 V296" },
+];
+
+const SCENARIOS: Scenario[] = [
+  {
+    id: "regular",
+    label: "Zwykłe pytanie",
+    question: "Ile dni urlopu wypoczynkowego przysługuje mi po 12 latach pracy?",
+    steps: [
+      { node: "start", out: "stan: { question, history: \"\", steps: [] }" },
+      { node: "plan", edge: "start-plan", out: "plan = { action: \"search\", search_query: \"Wymiar urlopu wypoczynkowego pracownika zatrudnionego przez okres 12 lat\", references: [\"art. 154 KP\"] }" },
+      { node: "gather", edge: "plan-gather", out: "hits = 9 przepisów: art. 154 § 1–3 KP, art. 167³ KP, art. 153 § 1 KP, …" },
+      { node: "expand", edge: "gather-expand", out: "brak dodatkowych odesłań — hits bez zmian" },
+      { node: "answer", edge: "expand-answer", out: "answer = { status: \"answer\", answer: \"Po 12 latach pracy przysługuje Ci 26 dni urlopu [1]…\", citations: [art. 154 § 1 KP] }" },
+      { node: "verify", edge: "answer-verify", out: "checks = [ art. 154 § 1 KP → verified (istnieje · cytat 100% · sędzia: supports) ]" },
+      { node: "endBottom", edge: "verify-end", out: "wynik → API → frontend (odpowiedź, karty cytatów, kroki, metryki)" },
+    ],
+  },
+  {
+    id: "deadline",
+    label: "Pytanie o termin",
+    question: "Odebrałem paczkę 3 października 2026. Do kiedy mogę odstąpić od umowy?",
+    steps: [
+      { node: "start", out: "stan: { question, history: \"\", steps: [] }" },
+      { node: "plan", edge: "start-plan", out: "plan = { action: \"deadline\", deadline: { start_date: \"2026-10-03\", amount: 14, unit: \"days\" }, references: [\"art. 27 UPK\"] }" },
+      { node: "gather", edge: "plan-gather", out: "calculate_deadline: 17.10 (sobota) → 19.10 (poniedziałek) · hits = 10 przepisów (art. 27 UPK, art. 111 KC, art. 115 KC, …)" },
+      { node: "expand", edge: "gather-expand", out: "follow_reference dołącza: art. 33 UPK, art. 34 ust. 2 UPK, art. 35 UPK" },
+      { node: "answer", edge: "expand-answer", out: "answer: „…ostatnim dniem jest 19 października 2026 roku [3], [4]” — 4 cytaty" },
+      { node: "verify", edge: "answer-verify", out: "checks: 2 × verified, 2 × uncertain (sędzia: art. 115 KC nie zawiera konkretnej daty)" },
+      { node: "endBottom", edge: "verify-end", out: "UI pokazuje kartę terminu: 3 października → 19 października" },
+    ],
+  },
+  {
+    id: "clarify",
+    label: "Dopytanie",
+    question: "Mam problem w pracy, co robić?",
+    steps: [
+      { node: "start", out: "stan: { question, history: \"\", steps: [] }" },
+      { node: "plan", edge: "start-plan", out: "plan = { action: \"clarify\", message: \"Czy problem dotyczy umowy o pracę, czasu pracy, nadgodzin czy urlopu?\" }" },
+      { node: "respond", edge: "plan-respond", out: "answer = { status: \"clarify\", answer: plan.message, citations: [] } — bez wyszukiwania" },
+      { node: "endTop", edge: "respond-end", out: "1 wywołanie LLM, ~1 s. Odpowiedź użytkownika wróci jako history." },
+    ],
+  },
+  {
+    id: "retry",
+    label: "Ponowienie po odmowie",
+    question: "Pytanie, przy którym planer źle przepisał zapytanie",
+    note: "Przykład poglądowy pokazujący pętlę answer → retry → answer.",
+    steps: [
+      { node: "start", out: "stan: { question, history: \"\", steps: [] }" },
+      { node: "plan", edge: "start-plan", out: "plan = { action: \"search\", search_query: \"…przepisanie, które zmieniło sens pytania…\" }" },
+      { node: "gather", edge: "plan-gather", out: "hits = 8 przepisów, ale nie te, których potrzeba" },
+      { node: "expand", edge: "gather-expand", out: "brak dodatkowych odesłań" },
+      { node: "answer", edge: "expand-answer", out: "answer = { status: \"refuse\" } — w kontekście brak podstawy" },
+      { node: "retry", edge: "answer-retry", out: "search(oryginalne pytanie, bez przepisania) → nowe przepisy; retried = True" },
+      { node: "answer", edge: "retry-answer", out: "druga próba: status \"answer\" z cytatami" },
+      { node: "verify", edge: "answer-verify", out: "checks dla nowych cytatów" },
+      { node: "endBottom", edge: "verify-end", out: "flaga retried gwarantuje najwyżej jedną pętlę" },
+    ],
+  },
+];
+
+interface NodeInfo { reads: string; calls: string; writes: string }
+const INFO: Record<NodeId, NodeInfo> = {
+  start: { reads: "—", calls: "—", writes: "stan początkowy: question, history, steps = []" },
+  plan: { reads: "question, history, today", calls: "LLM (Gemini) ze schematem Plan", writes: "plan (action, search_query, references, deadline, message), today, steps" },
+  respond: { reads: "plan.action, plan.message", calls: "nic — ani LLM, ani bazy", writes: "answer (status clarify / refuse), checks = []" },
+  endTop: { reads: "cały stan", calls: "—", writes: "stan końcowy → API → frontend" },
+  gather: { reads: "plan, today, question", calls: "get_article (wskazane artykuły), calculate_deadline (termin), search_law → Jina: embeddingi + reranker", writes: "hits (przepisy do kontekstu), deadline, steps" },
+  expand: { reads: "hits", calls: "follow_reference — tabela provision_refs, bez AI", writes: "hits (+ maks. 3 przepisy z odesłań), steps" },
+  answer: { reads: "question, hits, history, deadline", calls: "LLM (Gemini) ze schematem Answer — przepisy podane jako tekst <przepis id=…>", writes: "answer (status, tekst z [1] [2], citations), steps" },
+  retry: { reads: "question, hits", calls: "search na oryginalnym pytaniu (hybryda + reranker, bez przepisania)", writes: "hits (nowe + stare, maks. 14), retried = True, steps" },
+  verify: { reads: "answer", calls: "baza (czy przepis istnieje) · rapidfuzz (czy cytat jest w tekście) · LLM-sędzia (czy popiera)", writes: "answer (bez błędnych cytatów), checks (status każdego cytatu), steps" },
+  endBottom: { reads: "cały stan", calls: "—", writes: "stan końcowy → API → frontend" },
+};
+
+const KIND_LABEL: Record<Kind, string> = { llm: "LLM", tool: "narzędzia", plain: "bez LLM", terminal: "" };
+
+export function AgentGraph() {
+  const [scenarioId, setScenarioId] = useState("regular");
+  const scenario = SCENARIOS.find((s) => s.id === scenarioId)!;
+  const [step, setStep] = useState(scenario.steps.length - 1);
+  const [playing, setPlaying] = useState(false);
+  const [selected, setSelected] = useState<NodeId>("plan");
+
+  useEffect(() => {
+    if (!playing) return;
+    if (step >= scenario.steps.length - 1) { setPlaying(false); return; }
+    const t = window.setTimeout(() => setStep((s) => s + 1), 1100);
+    return () => window.clearTimeout(t);
+  }, [playing, step, scenario.steps.length]);
+
+  useEffect(() => { setSelected(scenario.steps[step].node); }, [step, scenario]);
+
+  const pick = (id: string) => { setScenarioId(id); setPlaying(false); setStep(SCENARIOS.find((s) => s.id === id)!.steps.length - 1); };
+  const play = () => { setStep(0); setPlaying(true); };
+
+  const visible = scenario.steps.slice(0, step + 1);
+  const activeNodes = new Set(visible.map((s) => s.node));
+  const activeEdges = new Set(visible.map((s) => s.edge).filter(Boolean) as string[]);
+  const current = scenario.steps[step].node;
+  const order = (id: NodeId) => visible.map((s, i) => (s.node === id ? i : -1)).filter((i) => i > 0);
+
+  const info = INFO[selected];
+  const node = N[selected];
+
+  return (
+    <div className="agent-graph">
+      <div className="scenario-bar">
+        {SCENARIOS.map((s) => (
+          <button key={s.id} className={`scenario ${s.id === scenarioId ? "active" : ""}`} onClick={() => pick(s.id)}>{s.label}</button>
+        ))}
+        <button className="play" onClick={play} disabled={playing}>{playing ? "Odtwarzam…" : "▶ Odtwórz krok po kroku"}</button>
+      </div>
+      <div className="scenario-q">Pytanie: <em>„{scenario.question}”</em>{scenario.note && <span className="note"> · {scenario.note}</span>}</div>
+
+      <div className="card graph-card">
+        <svg viewBox="0 0 990 360" role="img" aria-label="Graf agenta LangGraph">
+          <defs>
+            <marker id="ga" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 10 5 0 10z" fill="var(--text-3)" />
+            </marker>
+            <marker id="ga-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 10 5 0 10z" fill="var(--primary-2)" />
+            </marker>
+          </defs>
+
+          {EDGES.map((e) => {
+            const on = activeEdges.has(e.id);
+            return (
+              <g key={e.id} className={`g-edge ${on ? "on" : ""}`}>
+                <path d={e.d} fill="none" strokeDasharray={e.conditional ? "5 4" : undefined} markerEnd={on ? "url(#ga-on)" : "url(#ga)"} />
+                {e.label && <text x={e.lx} y={e.ly} textAnchor={e.anchor ?? "middle"} className="g-edge-label">{e.label}</text>}
+              </g>
+            );
+          })}
+
+          {NODES.map((n) => {
+            const on = activeNodes.has(n.id);
+            const isCurrent = n.id === current;
+            const nums = order(n.id);
+            if (n.kind === "terminal") {
+              return (
+                <g key={n.id} className={`g-node terminal ${on ? "on" : ""}`} onClick={() => setSelected(n.id)}>
+                  <circle cx={n.x + 20} cy={n.y + 20} r={20} />
+                  <text x={n.x + 20} y={n.y + 24} textAnchor="middle">{n.name}</text>
+                </g>
+              );
+            }
+            return (
+              <g key={n.id} className={`g-node ${n.kind} ${on ? "on" : ""} ${isCurrent ? "current" : ""} ${selected === n.id ? "selected" : ""}`}
+                 onClick={() => setSelected(n.id)} role="button" tabIndex={0}
+                 onKeyDown={(ev) => ev.key === "Enter" && setSelected(n.id)}>
+                <rect x={n.x} y={n.y} width={n.w} height={n.h} rx={12} />
+                <text x={n.x + n.w / 2} y={n.y + 24} textAnchor="middle" className="g-name">{n.name}</text>
+                <text x={n.x + n.w / 2} y={n.y + 42} textAnchor="middle" className="g-sub">{n.sub}</text>
+                {KIND_LABEL[n.kind] && (
+                  <text x={n.x + n.w - 8} y={n.y - 6} textAnchor="end" className={`g-kind ${n.kind}`}>{KIND_LABEL[n.kind]}</text>
+                )}
+                {nums.length > 0 && (
+                  <g>
+                    <rect x={n.x - 8} y={n.y - 10} width={nums.length > 1 ? 34 : 20} height={20} rx={10} className="g-badge" />
+                    <text x={n.x - 8 + (nums.length > 1 ? 17 : 10)} y={n.y + 4} textAnchor="middle" className="g-badge-t">{nums.join("·")}</text>
+                  </g>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+
+        <div className="graph-legend">
+          <span><i className="lg llm" /> węzeł z wywołaniem LLM</span>
+          <span><i className="lg tool" /> narzędzia / baza</span>
+          <span><i className="lg plain" /> bez LLM</span>
+          <span><i className="lg dashed" /> krawędź warunkowa</span>
+          <span className="note">Kliknij węzeł, aby zobaczyć jego wejście i wyjście.</span>
+        </div>
+      </div>
+
+      <div className="graph-detail">
+        <div className="card info">
+          <h3><code>{node.name}</code>{KIND_LABEL[node.kind] && <span className={`g-pill ${node.kind}`}>{KIND_LABEL[node.kind]}</span>}</h3>
+          <dl className="io">
+            <dt>Czyta ze stanu</dt><dd>{info.reads}</dd>
+            <dt>Wywołuje</dt><dd>{info.calls}</dd>
+            <dt>Zapisuje do stanu</dt><dd>{info.writes}</dd>
+          </dl>
+        </div>
+        <div className="card info">
+          <h3>Przebieg: {scenario.label.toLowerCase()}</h3>
+          <ol className="trace-list">
+            {visible.map((s, i) => (
+              <li key={i} className={i === step ? "now" : ""} onClick={() => { setPlaying(false); setStep(i); }}>
+                <code>{N[s.node].name}</code>
+                <span>{s.out}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+
+      <div className="grid-3 lg-concepts">
+        <div className="card info"><h3>Stan (<code>AgentState</code>)</h3><p>Słownik, który „płynie” przez graf: pytanie, plan, znalezione przepisy, odpowiedź, wyniki weryfikacji. Węzeł zwraca tylko pola, które zmienia — LangGraph scala je ze stanem.</p></div>
+        <div className="card info"><h3>Węzły</h3><p>Zwykłe funkcje Pythona: dostają stan, zwracają zmiany. Trzy z nich wywołują LLM (plan, answer, verify), reszta to kod deterministyczny i baza.</p></div>
+        <div className="card info"><h3>Krawędzie warunkowe</h3><p>Funkcje routujące (<code>_route</code>, <code>_route_after_answer</code>) patrzą na stan i wybierają następny węzeł: odmowa kończy graf od razu, odpowiedź idzie do weryfikacji.</p></div>
+        <div className="card info"><h3>Pętla</h3><p>Po odmowie mimo znalezionych przepisów graf wraca do <code>answer</code> przez <code>retry</code>. Zwykły łańcuch tego nie umie; flaga <code>retried</code> pilnuje jednej iteracji.</p></div>
+        <div className="card info"><h3>Streaming</h3><p><code>graph.stream(stream_mode="updates")</code> oddaje zmiany po każdym węźle — backend wysyła je przez SSE i stąd kroki agenta widać na żywo w czacie.</p></div>
+        <div className="card info"><h3>Dlaczego nie pętla ReAct</h3><p>Agent, który sam w pętli wybiera narzędzia, zużywa 5–10 wywołań LLM na pytanie. Tu planer decyduje raz, więc pytanie kosztuje stałe 3 wywołania — mieści się w darmowym limicie.</p></div>
+      </div>
+
+      <details className="card code-block">
+        <summary>Kod budujący graf (<code>backend/paragraf/agent/graph.py</code>)</summary>
+        <pre>{`graph = StateGraph(AgentState)
+graph.add_node("plan", self.plan)
+graph.add_node("respond_directly", self.respond_directly)
+graph.add_node("gather", self.gather)
+graph.add_node("expand", self.expand)
+graph.add_node("answer", self.answer)
+graph.add_node("retry", self.retry)
+graph.add_node("verify", self.verify)
+
+graph.add_edge(START, "plan")
+graph.add_conditional_edges("plan", _route, ["respond_directly", "gather"])
+graph.add_edge("respond_directly", END)
+graph.add_edge("gather", "expand")
+graph.add_edge("expand", "answer")
+graph.add_conditional_edges("answer", _route_after_answer, ["verify", "retry", END])
+graph.add_edge("retry", "answer")
+graph.add_edge("verify", END)
+return graph.compile()`}</pre>
+      </details>
+    </div>
+  );
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchEval } from "../api";
+import { AgentGraph } from "./AgentGraph";
 import { Database, Shield, Zap } from "./Icons";
 
 interface RetrievalRow { mode: string; label?: string; overall: Record<string, number>; latency_ms: { p50: number; p95: number } }
@@ -91,6 +92,15 @@ export function HowItWorks() {
           <div className="card info"><h3><Zap size={16} /> Retrieval hybrydowy</h3><p>Pełnotekstowe wyszukiwanie po lematach (spaCy, Postgres <code>simple</code>) + wektory (pgvector), fuzja RRF, przepisanie pytania na język ustaw i reranker cross-encoder.</p></div>
           <div className="card info"><h3><Shield size={16} /> Weryfikacja cytatów</h3><p>Dla każdego cytatu: czy przepis istnieje w bazie, czy cytowany fragment naprawdę w nim jest (fuzzy match) i czy popiera twierdzenie — ocenia osobny sędzia LLM, który widzi tylko treść przepisu i twierdzenie.</p></div>
         </div>
+
+        <div>
+          <h2>Agent w LangGraph</h2>
+          <p className="lead" style={{ marginTop: 0 }}>
+            Agent to graf stanów: węzły wykonują kolejne kroki, a krawędzie warunkowe decydują, dokąd iść dalej.
+            Wybierz scenariusz i odtwórz go, żeby zobaczyć, którędy przechodzi pytanie i co powstaje na każdym etapie.
+          </p>
+        </div>
+        <AgentGraph />
 
         {report === undefined && <div className="note"><span className="spinner" /> Wczytuję wyniki ewaluacji…</div>}
         {report === null && <div className="card info"><p>Wyniki ewaluacji nie zostały jeszcze wygenerowane (<code>evals/results/latest.json</code>).</p></div>}
