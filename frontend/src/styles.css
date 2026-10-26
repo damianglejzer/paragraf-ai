@@ -322,9 +322,14 @@ table.results tr.best td { background: var(--primary-soft); font-weight: 600; }
 .io { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; margin: 10px 0 0; font-size: 13.5px; }
 .io dt { color: var(--text-3); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; padding-top: 2px; }
 .io dd { margin: 0; color: var(--text); }
-.trace-list { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; counter-reset: st; max-height: 440px; overflow-y: auto; }
-.trace-list li { counter-increment: st; display: grid; grid-template-columns: 22px 122px 1fr; gap: 8px; align-items: start; font-size: 13px; padding: 8px; border-radius: 10px; cursor: pointer; color: var(--text-2); animation: fadein .25s ease; }
-.trace-list li::before { content: counter(st); width: 20px; height: 20px; border-radius: 50%; background: var(--surface-2); display: grid; place-items: center; font-weight: 700; font-size: 11px; color: var(--text-3); }
+.trace-stack { display: grid; margin-top: 8px; }
+.trace-list { grid-area: 1 / 1; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; counter-reset: st; opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility 0s linear .3s; }
+.trace-list.active { opacity: 1; visibility: visible; transition: opacity .3s ease .05s, visibility 0s; }
+.trace-list li { counter-increment: st; display: grid; grid-template-columns: 22px 122px 1fr; gap: 8px; align-items: start; font-size: 13px; padding: 8px; border-radius: 10px; cursor: pointer; color: var(--text-2); transition: opacity .45s ease, background-color .35s ease, filter .45s ease; }
+.trace-list li::before { content: counter(st); width: 20px; height: 20px; border-radius: 50%; background: var(--surface-2); display: grid; place-items: center; font-weight: 700; font-size: 11px; color: var(--text-3); transition: background-color .35s ease, color .35s ease; }
+.trace-list li.todo { opacity: .28; filter: grayscale(1); }
+.trace-list li.todo:hover { opacity: .5; }
+@media (prefers-reduced-motion: reduce) { .trace-list, .trace-list li, .trace-list li::before { transition: none; } }
 .trace-list li.now { background: var(--primary-soft); color: var(--text); }
 .trace-list li.now::before { background: var(--primary); color: #fff; }
 .trace-list code { font-weight: 700; font-size: 12px; color: var(--text-3); word-break: break-all; padding-top: 2px; }

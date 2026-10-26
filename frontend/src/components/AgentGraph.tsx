@@ -221,23 +221,32 @@ export function AgentGraph() {
         </div>
         <div className="card info">
           <h3>Przebieg: {scenario.label.toLowerCase()}</h3>
-          <ol className="trace-list">
-            {visible.map((s, i) => (
-              <li key={i} className={i === step ? "now" : ""} onClick={() => { setPlaying(false); setStep(i); }}>
-                <code>{N[s.node].name}</code>
-                <div className="t-body">
-                  <strong>{s.title}</strong>
-                  {s.text && <p>{s.text}</p>}
-                  {s.quote && <blockquote><span>{s.quote.label}</span>„{s.quote.value}”</blockquote>}
-                  {s.chips && (
-                    <div className="t-chips">
-                      {s.chips.map((c) => <span key={c.label} className={`chip ${c.ok ? "ok" : ""}`}>{c.ok && "✓ "}{c.label}</span>)}
-                    </div>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ol>
+          {/* All scenarios share one grid cell, so the card keeps the height of the longest one. */}
+          <div className="trace-stack">
+            {SCENARIOS.map((sc) => {
+              const active = sc.id === scenarioId;
+              const at = active ? step : sc.steps.length - 1;
+              return (
+                <ol key={sc.id} className={`trace-list ${active ? "active" : ""}`} aria-hidden={!active}>
+                  {sc.steps.map((s, i) => (
+                    <li key={i} className={i === at ? "now" : i > at ? "todo" : ""} onClick={() => { setPlaying(false); setStep(i); }}>
+                      <code>{N[s.node].name}</code>
+                      <div className="t-body">
+                        <strong>{s.title}</strong>
+                        {s.text && <p>{s.text}</p>}
+                        {s.quote && <blockquote><span>{s.quote.label}</span>„{s.quote.value}”</blockquote>}
+                        {s.chips && (
+                          <div className="t-chips">
+                            {s.chips.map((c) => <span key={c.label} className={`chip ${c.ok ? "ok" : ""}`}>{c.ok && "✓ "}{c.label}</span>)}
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              );
+            })}
+          </div>
         </div>
       </div>
 
