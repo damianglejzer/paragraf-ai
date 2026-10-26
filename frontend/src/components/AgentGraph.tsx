@@ -9,7 +9,15 @@ interface GEdge {
   id: string; from: NodeId; to: NodeId; d: string; conditional?: boolean;
   label?: string; lx?: number; ly?: number; anchor?: "start" | "middle" | "end";
 }
-interface Step { node: NodeId; edge?: string; out: string }
+interface Chip { label: string; ok?: boolean }
+interface Step {
+  node: NodeId;
+  edge?: string;
+  title: string;
+  text?: string;
+  quote?: { label: string; value: string };
+  chips?: Chip[];
+}
 interface Scenario { id: string; label: string; question: string; note?: string; steps: Step[] }
 
 const NODES: GNode[] = [
@@ -45,13 +53,25 @@ const SCENARIOS: Scenario[] = [
     label: "Zwykłe pytanie",
     question: "Ile dni urlopu wypoczynkowego przysługuje mi po 12 latach pracy?",
     steps: [
-      { node: "start", out: "stan: { question, history: \"\", steps: [] }" },
-      { node: "plan", edge: "start-plan", out: "plan = { action: \"search\", search_query: \"Wymiar urlopu wypoczynkowego pracownika zatrudnionego przez okres 12 lat\", references: [\"art. 154 KP\"] }" },
-      { node: "gather", edge: "plan-gather", out: "hits = 9 przepisów: art. 154 § 1–3 KP, art. 167³ KP, art. 153 § 1 KP, …" },
-      { node: "expand", edge: "gather-expand", out: "brak dodatkowych odesłań — hits bez zmian" },
-      { node: "answer", edge: "expand-answer", out: "answer = { status: \"answer\", answer: \"Po 12 latach pracy przysługuje Ci 26 dni urlopu [1]…\", citations: [art. 154 § 1 KP] }" },
-      { node: "verify", edge: "answer-verify", out: "checks = [ art. 154 § 1 KP → verified (istnieje · cytat 100% · sędzia: supports) ]" },
-      { node: "endBottom", edge: "verify-end", out: "wynik → API → frontend (odpowiedź, karty cytatów, kroki, metryki)" },
+      { node: "start", title: "Pytanie trafia do grafu", text: "Stan startowy: pytanie, pusta historia rozmowy." },
+      {
+        node: "plan", edge: "start-plan", title: "Decyzja: szukaj w przepisach",
+        quote: { label: "Pytanie w języku ustawy", value: "Wymiar urlopu wypoczynkowego pracownika zatrudnionego przez okres 12 lat" },
+      },
+      {
+        node: "gather", edge: "plan-gather", title: "Znaleziono 9 przepisów",
+        chips: [{ label: "art. 154 § 1 KP" }, { label: "art. 154 § 2 KP" }, { label: "art. 167³ KP" }, { label: "art. 153 § 1 KP" }, { label: "+5" }],
+      },
+      { node: "expand", edge: "gather-expand", title: "Brak dodatkowych odesłań", text: "Znalezione przepisy nie odsyłają do innych, lista bez zmian." },
+      {
+        node: "answer", edge: "expand-answer", title: "Odpowiedź z 1 cytatem",
+        quote: { label: "Odpowiedź", value: "Po 12 latach pracy przysługuje Ci 26 dni urlopu [1]." },
+      },
+      {
+        node: "verify", edge: "answer-verify", title: "Cytat zweryfikowany",
+        chips: [{ label: "art. 154 § 1 KP", ok: true }, { label: "przepis istnieje", ok: true }, { label: "cytat zgodny w 100%", ok: true }, { label: "sędzia: popiera", ok: true }],
+      },
+      { node: "endBottom", edge: "verify-end", title: "Wynik trafia do czatu", text: "Odpowiedź, karty cytatów, kroki agenta i metryki." },
     ],
   },
   {
@@ -59,10 +79,17 @@ const SCENARIOS: Scenario[] = [
     label: "Dopytanie",
     question: "Mam problem w pracy, co robić?",
     steps: [
-      { node: "start", out: "stan: { question, history: \"\", steps: [] }" },
-      { node: "plan", edge: "start-plan", out: "plan = { action: \"clarify\", message: \"Czy problem dotyczy umowy o pracę, czasu pracy, nadgodzin czy urlopu?\" }" },
-      { node: "respond", edge: "plan-respond", out: "answer = { status: \"clarify\", answer: plan.message, citations: [] } — bez wyszukiwania" },
-      { node: "endTop", edge: "respond-end", out: "1 wywołanie LLM, ~1 s. Odpowiedź użytkownika wróci jako history." },
+      { node: "start", title: "Pytanie trafia do grafu", text: "Stan startowy: pytanie, pusta historia rozmowy." },
+      {
+        node: "plan", edge: "start-plan", title: "Decyzja: dopytaj",
+        quote: { label: "Wiadomość planera", value: "Czy problem dotyczy umowy o pracę, czasu pracy, nadgodzin czy urlopu?" },
+      },
+      { node: "respond", edge: "plan-respond", title: "Pytanie doprecyzowujące trafia do użytkownika", text: "Bez wyszukiwania i bez kolejnego wywołania LLM." },
+      {
+        node: "endTop", edge: "respond-end", title: "Koniec",
+        text: "Odpowiedź użytkownika wróci w następnym pytaniu jako historia rozmowy.",
+        chips: [{ label: "1 wywołanie LLM" }, { label: "~1 s" }],
+      },
     ],
   },
 ];
@@ -198,7 +225,16 @@ export function AgentGraph() {
             {visible.map((s, i) => (
               <li key={i} className={i === step ? "now" : ""} onClick={() => { setPlaying(false); setStep(i); }}>
                 <code>{N[s.node].name}</code>
-                <span>{s.out}</span>
+                <div className="t-body">
+                  <strong>{s.title}</strong>
+                  {s.text && <p>{s.text}</p>}
+                  {s.quote && <blockquote><span>{s.quote.label}</span>„{s.quote.value}”</blockquote>}
+                  {s.chips && (
+                    <div className="t-chips">
+                      {s.chips.map((c) => <span key={c.label} className={`chip ${c.ok ? "ok" : ""}`}>{c.ok && "✓ "}{c.label}</span>)}
+                    </div>
+                  )}
+                </div>
               </li>
             ))}
           </ol>
