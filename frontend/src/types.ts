@@ -20,24 +20,12 @@ export interface Citation {
   quote_score: number | null;
 }
 
-export interface Deadline {
-  start: string;
-  amount: number;
-  unit: string;
-  raw_end: string;
-  end: string;
-  shifted: boolean;
-  steps: string[];
-  legal_basis: string[];
-}
-
 export interface ChatPayload {
   status: AnswerStatus;
   answer: string;
   citations: Citation[];
   steps: Step[];
   rewrite: string | null;
-  deadline: Deadline | null;
   metrics: {
     total_ms: number;
     tokens: number;

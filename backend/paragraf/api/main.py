@@ -42,8 +42,7 @@ EXAMPLES = [
     },
     {
         "label": "Zwrot towaru",
-        "question": "Odebrałem paczkę ze sklepu internetowego 3 października 2026. "
-        "Do kiedy mogę odstąpić od umowy?",
+        "question": "Ile mam czasu na odstąpienie od umowy zakupu w sklepie internetowym?",
     },
     {
         "label": "Wypowiedzenie",
@@ -154,7 +153,6 @@ def build_payload(state: dict[str, Any], usage: UsageLog, total_ms: float) -> di
                 "quote_score": check.quote_score if check else None,
             }
         )
-    deadline = state.get("deadline")
     plan = state.get("plan")
     return {
         "status": answer.status,
@@ -162,7 +160,6 @@ def build_payload(state: dict[str, Any], usage: UsageLog, total_ms: float) -> di
         "citations": citations,
         "steps": state.get("steps", []),
         "rewrite": plan.search_query if plan else None,
-        "deadline": deadline.model_dump(mode="json") if deadline else None,
         "metrics": {
             "total_ms": round(total_ms),
             "tokens": usage.total_tokens,

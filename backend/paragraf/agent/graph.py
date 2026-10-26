@@ -3,8 +3,8 @@
 One planner call decides what to do and rewrites the query; tools run deterministically.
 This keeps a request at ~3 LLM calls (planner, answer, judge), which fits free-tier quotas,
 while still giving the agent the ability to ask for clarification, refuse, look up cited
-articles, follow cross-references and compute deadlines. Each node appends a `step` event that
-the UI renders as a live trace.
+articles and follow cross-references. Each node appends a `step` event that the UI renders as a
+live trace.
 """
 
 import datetime as dt
@@ -18,7 +18,6 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 
-from paragraf.agent.deadlines import DeadlineResult, Unit
 from paragraf.agent.tools import LawToolkit, hit_from_view
 from paragraf.corpus import TOPICS
 from paragraf.generation.answer import Answer, generate_answer
@@ -28,23 +27,14 @@ from paragraf.providers.base import LLM
 from paragraf.providers.usage import stage
 from paragraf.retrieval.search import Hit
 
-Action = Literal["search", "lookup", "deadline", "clarify", "refuse"]
-
-
-class DeadlineRequest(BaseModel):
-    start_date: str | None = Field(
-        default=None, description="Data zdarzenia rozpoczynającego bieg terminu, YYYY-MM-DD"
-    )
-    amount: int = Field(default=14, ge=1)
-    unit: Unit = "days"
+Action = Literal["search", "lookup", "clarify", "refuse"]
 
 
 class Plan(BaseModel):
     action: Action = Field(
         description=(
             "search: pytanie prawne w zakresie; lookup: użytkownik wskazuje konkretny artykuł; "
-            "deadline: pyta, kiedy upływa termin i podaje datę początkową; clarify: pytanie zbyt "
-            "ogólne; refuse: pytanie poza zakresem tematów lub nieprawnicze"
+            "clarify: pytanie zbyt ogólne; refuse: pytanie poza zakresem tematów lub nieprawnicze"
         )
     )
     search_query: str = Field(
@@ -53,7 +43,6 @@ class Plan(BaseModel):
     references: list[str] = Field(
         default_factory=list, description='Jawnie wskazane przepisy, np. "art. 154 KP"'
     )
-    deadline: DeadlineRequest | None = None
     message: str = Field(
         default="", description="Dla clarify/refuse: krótka wiadomość do użytkownika po polsku"
     )
@@ -70,9 +59,7 @@ pytanie używa określenia, które może oznaczać różne rzeczy. Przykład: �
 znaczyć wyższy wymiar urlopu wypoczynkowego (26 zamiast 20 dni) albo osobny urlop dodatkowy
 (np. z tytułu niepełnosprawności). W message zadaj jedno krótkie pytanie i podaj możliwe
 znaczenia do wyboru.
-Wybieraj "refuse", gdy pytanie nie dotyczy prawa albo dotyczy tematów spoza listy.
-Gdy użytkownik pyta o koniec terminu i podaje (lub wynika z pytania) datę początkową, wybierz
-"deadline" i wypełnij deadline; także wtedy wypełnij search_query."""
+Wybieraj "refuse", gdy pytanie nie dotyczy prawa albo dotyczy tematów spoza listy."""
 
 
 class AgentState(TypedDict, total=False):
@@ -81,7 +68,6 @@ class AgentState(TypedDict, total=False):
     today: dt.date
     plan: Plan
     hits: list[Hit]
-    deadline: DeadlineResult | None
     answer: Answer
     checks: list[CitationCheck]
     retried: bool
@@ -124,7 +110,6 @@ class ParagrafAgent:
                     {
                         "search": "Szukam przepisów",
                         "lookup": "Pobieram wskazany przepis",
-                        "deadline": "Liczę termin",
                         "clarify": "Pytanie wymaga doprecyzowania",
                         "refuse": "Pytanie poza zakresem",
                     }[plan.action],
@@ -163,16 +148,6 @@ class ParagrafAgent:
             view = self.toolkit.get_article(ref)
             if view is not None:
                 add([hit_from_view(c) for c in view.children] or [hit_from_view(view)])
-        deadline: DeadlineResult | None = None
-        if plan.action == "deadline" and plan.deadline is not None:
-            start = _parse_date(plan.deadline.start_date) or state["today"]
-            deadline = self.toolkit.calculate_deadline(
-                start, plan.deadline.amount, plan.deadline.unit
-            )
-            for pid in deadline.legal_basis:
-                view = self.toolkit.get_article(pid)
-                if view is not None:
-                    add([hit_from_view(view)])
         with stage("retrieval"):
             add(
                 self.toolkit.search_law(state["question"], k=self.k, mode="full")
@@ -181,13 +156,16 @@ class ParagrafAgent:
                     state["question"], k=self.k, mode="full", rewrite=plan.search_query
                 )
             )
-        detail: dict[str, Any] = {"hits": [h.citation for h in hits]}
-        if deadline is not None:
-            detail["deadline"] = deadline.end.isoformat()
         return {
             "hits": hits,
-            "deadline": deadline,
-            "steps": [_step("gather", f"Znaleziono {len(hits)} przepisów", started, **detail)],
+            "steps": [
+                _step(
+                    "gather",
+                    f"Znaleziono {len(hits)} przepisów",
+                    started,
+                    hits=[h.citation for h in hits],
+                )
+            ],
         }
 
     def expand(self, state: AgentState) -> AgentState:
@@ -211,16 +189,9 @@ class ParagrafAgent:
 
     def answer(self, state: AgentState) -> AgentState:
         started = time.perf_counter()
-        tool_results = ""
-        if (deadline := state.get("deadline")) is not None:
-            tool_results = "calculate_deadline:\n" + "\n".join(deadline.steps)
         with stage("generation"):
             answer, _ = generate_answer(
-                self.llm,
-                state["question"],
-                state["hits"],
-                history=state.get("history", ""),
-                tool_results=tool_results,
+                self.llm, state["question"], state["hits"], history=state.get("history", "")
             )
         return {
             "answer": answer,
@@ -335,15 +306,6 @@ def _lookup(toolkit: LawToolkit, pid: str) -> dict[str, Any] | None:
     from paragraf.db import repository as repo
 
     return repo.get_provision(toolkit.conn, pid)
-
-
-def _parse_date(value: str | None) -> dt.date | None:
-    if not value:
-        return None
-    try:
-        return dt.date.fromisoformat(value[:10])
-    except ValueError:
-        return None
 
 
 AgentFactory = Callable[[], ParagrafAgent]

@@ -16,12 +16,11 @@ point of the project is retrieval quality and citation verification.
   pgvector embeddings, fused with RRF. Before searching, an LLM rewrites the question into
   statutory vocabulary. A cross-encoder reranks the results.
 - **LangGraph agent.** It asks for clarification, refuses out-of-scope questions, looks up cited
-  articles, follows cross-references ("art. 22 § 1" → relation) and computes deadlines under
-  KC art. 111–115, including the Polish holiday calendar.
+  articles and follows cross-references ("art. 22 § 1" → relation).
 - **Citation verification.** Each citation gets one of three statuses: *verified*, *uncertain* or
   *wrong*. Wrong citations are removed from the answer. The UI shows the status of every citation.
 - **MCP server** (official Python SDK). It exposes `search_law`, `get_article`,
-  `follow_reference` and `calculate_deadline`.
+  and `follow_reference`.
 - **Demo protection.** Per-IP rate limit, a daily request budget with a cache-only fallback, an
   answer cache and a query length limit.
 

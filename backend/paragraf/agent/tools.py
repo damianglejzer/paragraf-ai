@@ -1,10 +1,9 @@
-"""Agent tools: search_law, get_article, follow_reference, calculate_deadline.
+"""Agent tools: search_law, get_article, follow_reference.
 
 Plain functions over a `LawToolkit`, so the same implementations back the LangGraph agent,
 the MCP server and the HTTP API.
 """
 
-import datetime as dt
 import re
 from dataclasses import dataclass
 from typing import Any
@@ -12,7 +11,6 @@ from typing import Any
 import psycopg
 from pydantic import BaseModel
 
-from paragraf.agent.deadlines import DeadlineResult, Unit, calculate_deadline
 from paragraf.db import repository as repo
 from paragraf.parsing.references import to_id_number
 from paragraf.retrieval.search import Hit, Mode, Retriever
@@ -114,11 +112,6 @@ class LawToolkit:
             if row is not None:
                 out.append(_view(row))
         return out
-
-    @staticmethod
-    def calculate_deadline(start: dt.date, amount: int, unit: Unit) -> DeadlineResult:
-        """End of a statutory term per KC art. 111-115 (holidays and Saturdays shift the end)."""
-        return calculate_deadline(start, amount, unit)
 
 
 def _view(row: dict[str, Any]) -> ProvisionView:

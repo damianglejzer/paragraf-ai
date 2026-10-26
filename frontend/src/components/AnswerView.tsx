@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { AssistantMessage, Citation, CitationStatus, Deadline } from "../types";
+import type { AssistantMessage, Citation, CitationStatus } from "../types";
 import { AgentTrace } from "./AgentTrace";
 import { Alert, Check, Clock, Coins, Refresh, X, Zap } from "./Icons";
 
@@ -30,28 +30,8 @@ function renderWithMarkers(text: string, citations: Citation[], onOpen: (c: Cita
   });
 }
 
-const fmtDate = (iso: string) =>
-  new Date(iso + "T12:00:00").toLocaleDateString("pl-PL", { day: "numeric", month: "long", year: "numeric" });
-const weekday = (iso: string) => new Date(iso + "T12:00:00").toLocaleDateString("pl-PL", { weekday: "long" });
-const ACCUSATIVE: Record<string, string> = { środa: "środę", sobota: "sobotę", niedziela: "niedzielę" };
-const weekdayAcc = (iso: string) => ACCUSATIVE[weekday(iso)] ?? weekday(iso);
 const plural = (n: number, one: string, few: string, many: string) =>
   n === 1 ? one : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? few : many;
-
-function DeadlineCard({ d }: { d: Deadline }) {
-  const unit = { days: "dni", weeks: "tyg.", months: "mies.", years: "lat" }[d.unit] ?? d.unit;
-  return (
-    <div className="card deadline">
-      <div className="date-box"><div className="l">początek</div><div className="d">{fmtDate(d.start)}</div><div className="l">{weekday(d.start)}</div></div>
-      <div className="arrow">+ {d.amount} {unit}<br />→</div>
-      <div className="date-box end"><div className="l">koniec terminu</div><div className="d">{fmtDate(d.end)}</div><div className="l">{weekday(d.end)}</div></div>
-      <div className="note">
-        <Zap size={13} /> Obliczone deterministycznie narzędziem <code>calculate_deadline</code> (art. 111–115 KC, z kalendarzem świąt).
-        {d.shifted && <> Koniec przypadał na {weekdayAcc(d.raw_end)} ({fmtDate(d.raw_end)}), więc przesunięto go na następny dzień roboczy.</>}
-      </div>
-    </div>
-  );
-}
 
 export function AnswerView({ msg, onOpen, onRetry }: { msg: AssistantMessage; onOpen: (c: Citation) => void; onRetry: () => void }) {
   const p = msg.payload;
@@ -82,8 +62,6 @@ export function AnswerView({ msg, onOpen, onRetry }: { msg: AssistantMessage; on
             </div>
           </div>
         )}
-
-        {p?.deadline && <DeadlineCard d={p.deadline} />}
 
         {citations.length > 0 && (
           <div className="citations">

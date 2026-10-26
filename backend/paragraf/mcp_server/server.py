@@ -7,14 +7,12 @@ or over streamable HTTP:
 """
 
 import argparse
-import datetime as dt
 from functools import lru_cache
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 
-from paragraf.agent.deadlines import Unit
 from paragraf.agent.tools import LawToolkit
 from paragraf.corpus import CORPUS_SCOPE, TOPICS
 from paragraf.db import repository as repo
@@ -87,20 +85,6 @@ def follow_reference(provision_id: str) -> list[dict[str, Any]]:
         provision_id: id returned by search_law/get_article, e.g. "KP:art_154:par_3"
     """
     return [v.model_dump() for v in toolkit().follow_reference(provision_id)]
-
-
-@mcp.tool(annotations=READ_ONLY)
-def calculate_deadline(start_date: str, amount: int, unit: Unit = "days") -> dict[str, Any]:
-    """End of a statutory term per Kodeks cywilny art. 111-115 (Saturdays and public holidays
-    shift the end to the next working day).
-
-    Args:
-        start_date: date of the event starting the term, YYYY-MM-DD
-        amount: length of the term
-        unit: days | weeks | months | years
-    """
-    result = LawToolkit.calculate_deadline(dt.date.fromisoformat(start_date), amount, unit)
-    return result.model_dump(mode="json")
 
 
 @mcp.resource("paragraf://corpus")

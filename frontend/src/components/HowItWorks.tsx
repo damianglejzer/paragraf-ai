@@ -52,7 +52,7 @@ function Diagram() {
       {arrow(895, 90, 895, 112)}<line x1="895" y1="112" x2="282" y2="112" stroke="var(--text-3)" strokeWidth="1.5" strokeDasharray="4 4" />{arrow(282, 112, 282, 138)}
 
       <text x="10" y="238" fontSize="11" fontWeight="600" fill="var(--gold)" letterSpacing="1.5">NARZĘDZIA AGENTA · UDOSTĘPNIONE TEŻ PRZEZ MCP</text>
-      {["search_law", "get_article", "follow_reference", "calculate_deadline"].map((t, i) => (
+      {["search_law", "get_article", "follow_reference"].map((t, i) => (
         <g key={t}>
           <rect x={10 + i * 175} y={250} width={160} height={34} rx={9} fill="var(--surface)" stroke="var(--border)" />
           <text x={90 + i * 175} y={272} textAnchor="middle" fontSize="12.5" fontFamily="ui-monospace, monospace" fill="var(--text-2)">{t}()</text>

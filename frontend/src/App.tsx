@@ -9,7 +9,7 @@ import type { AssistantMessage, Citation, Example, Message } from "./types";
 const MAX_CHARS = 500;
 const FALLBACK_EXAMPLES: Example[] = [
   { label: "Urlop", question: "Ile dni urlopu wypoczynkowego przysługuje mi po 12 latach pracy?" },
-  { label: "Zwrot towaru", question: "Odebrałem paczkę ze sklepu internetowego 3 października 2026. Do kiedy mogę odstąpić od umowy?" },
+  { label: "Zwrot towaru", question: "Ile mam czasu na odstąpienie od umowy zakupu w sklepie internetowym?" },
   { label: "Wypowiedzenie", question: "Jaki mam okres wypowiedzenia, jeśli pracuję w firmie od 4 lat?" },
   { label: "Przedawnienie", question: "Po ilu latach przedawnia się zwykły dług?" },
   { label: "Najem", question: "Czy wynajmujący może podnieść czynsz za mieszkanie w trakcie najmu?" },

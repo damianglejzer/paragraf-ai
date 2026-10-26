@@ -22,7 +22,6 @@ function StepDetail({ step }: { step: Step }) {
         {(d.hits as string[]).slice(0, 8).map((h) => (
           <span className="chip" key={h}>{h}</span>
         ))}
-        {typeof d.deadline === "string" && <span className="chip">termin: {d.deadline}</span>}
       </div>
     );
   }
