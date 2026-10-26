@@ -260,7 +260,7 @@ in the provided provisions"). The refusal was cached, so every repeat replayed t
    (with "dodatkowy urlop" as a worked example).
 3. A `retry` node: when the answer is a refusal although retrieval returned provisions, search
    once more with the user's original wording (hybrid + rerank, no rewrite), merge the results
-   and answer again. At most one retry per question.
+   and answer again. At most one retry per question. *(Removed later, see D15.)*
 
 **Alternatives.** Dropping the rewrite altogether: D10 showed it is a large net win.
 Always searching with both wordings: that already happens in "full" mode, yet a misleading
@@ -289,3 +289,23 @@ to be justified by an ablation row "ts_rank_cd vs BM25".
 **Consequences.** `ts_rank_cd` treats common words ("pracownik") like rare ones ("wypoczynkowy"),
 which hurts long natural-language questions. RRF fusion with the vector ranking and the reranker
 mitigate this.
+
+---
+
+## D15. Simpler agent graph: no retry node, no deadline tool
+
+**Context.** The graph had grown a `retry` loop (D13, point 3) and a `deadline` action with a
+`calculate_deadline` tool. Neither is central to the project's focus (retrieval quality and
+citation verification), and both add branches to explain, test and keep stable in the demo.
+
+**Decision.** Remove both. The graph is now linear after planning:
+`plan → (respond_directly | gather → expand → answer → verify)`. A refusal from the answer node
+ends the run.
+
+**Alternatives.** Keeping the retry loop: it only helps when the planner's rewrite misleads
+retrieval, which D13 points 1–2 and the "full" retrieval mode (original and rewritten queries
+fused) already address.
+
+**Consequences.** Every request costs at most 3 LLM calls, with no extra round on refusals. A
+misleading rewrite can again produce a false refusal; `false_refusal_rate` in the generation eval
+tracks this.

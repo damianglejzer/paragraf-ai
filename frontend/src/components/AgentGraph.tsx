@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 type NodeId =
-  | "start" | "plan" | "respond" | "endTop" | "gather" | "expand" | "answer" | "retry" | "verify" | "endBottom";
+  | "start" | "plan" | "respond" | "endTop" | "gather" | "expand" | "answer" | "verify" | "endBottom";
 type Kind = "llm" | "tool" | "plain" | "terminal";
 
 interface GNode { id: NodeId; x: number; y: number; w: number; h: number; kind: Kind; name: string; sub: string }
@@ -20,7 +20,6 @@ const NODES: GNode[] = [
   { id: "gather", x: 340, y: 170, w: 130, h: 56, kind: "tool", name: "gather", sub: "szukanie + narzędzia" },
   { id: "expand", x: 510, y: 170, w: 120, h: 56, kind: "tool", name: "expand", sub: "odesłania" },
   { id: "answer", x: 670, y: 170, w: 120, h: 56, kind: "llm", name: "answer", sub: "odpowiedź + cytaty" },
-  { id: "retry", x: 670, y: 290, w: 120, h: 56, kind: "tool", name: "retry", sub: "szukaj jeszcze raz" },
   { id: "verify", x: 865, y: 170, w: 110, h: 56, kind: "llm", name: "verify", sub: "sędzia cytatów" },
   { id: "endBottom", x: 900, y: 298, w: 40, h: 40, kind: "terminal", name: "END", sub: "" },
 ];
@@ -37,9 +36,6 @@ const EDGES: GEdge[] = [
   { id: "expand-answer", from: "expand", to: "answer", d: "M630 198 H668" },
   { id: "answer-verify", from: "answer", to: "verify", d: "M790 198 H863", conditional: true,
     label: "odpowiedź", lx: 826, ly: 216 },
-  { id: "answer-retry", from: "answer", to: "retry", d: "M705 226 V288", conditional: true,
-    label: "odmowa (1×)", lx: 698, ly: 262, anchor: "end" },
-  { id: "retry-answer", from: "retry", to: "answer", d: "M755 290 V228", label: "ponów", lx: 762, ly: 262, anchor: "start" },
   { id: "answer-end", from: "answer", to: "endBottom", d: "M790 218 C 830 250, 860 300, 898 316", conditional: true,
     label: "inne", lx: 836, ly: 282, anchor: "end" },
   { id: "verify-end", from: "verify", to: "endBottom", d: "M920 226 V296" },
@@ -71,23 +67,6 @@ const SCENARIOS: Scenario[] = [
       { node: "endTop", edge: "respond-end", out: "1 wywołanie LLM, ~1 s. Odpowiedź użytkownika wróci jako history." },
     ],
   },
-  {
-    id: "retry",
-    label: "Ponowienie po odmowie",
-    question: "Pytanie, przy którym planer źle przepisał zapytanie",
-    note: "Przykład poglądowy pokazujący pętlę answer → retry → answer.",
-    steps: [
-      { node: "start", out: "stan: { question, history: \"\", steps: [] }" },
-      { node: "plan", edge: "start-plan", out: "plan = { action: \"search\", search_query: \"…przepisanie, które zmieniło sens pytania…\" }" },
-      { node: "gather", edge: "plan-gather", out: "hits = 8 przepisów, ale nie te, których potrzeba" },
-      { node: "expand", edge: "gather-expand", out: "brak dodatkowych odesłań" },
-      { node: "answer", edge: "expand-answer", out: "answer = { status: \"refuse\" } — w kontekście brak podstawy" },
-      { node: "retry", edge: "answer-retry", out: "search(oryginalne pytanie, bez przepisania) → nowe przepisy; retried = True" },
-      { node: "answer", edge: "retry-answer", out: "druga próba: status \"answer\" z cytatami" },
-      { node: "verify", edge: "answer-verify", out: "checks dla nowych cytatów" },
-      { node: "endBottom", edge: "verify-end", out: "flaga retried gwarantuje najwyżej jedną pętlę" },
-    ],
-  },
 ];
 
 interface NodeInfo { reads: string; calls: string; writes: string }
@@ -99,7 +78,6 @@ const INFO: Record<NodeId, NodeInfo> = {
   gather: { reads: "plan, question", calls: "get_article (wskazane artykuły), search_law → Jina: embeddingi + reranker", writes: "hits (przepisy do kontekstu), steps" },
   expand: { reads: "hits", calls: "follow_reference — tabela provision_refs, bez AI", writes: "hits (+ maks. 3 przepisy z odesłań), steps" },
   answer: { reads: "question, hits, history", calls: "LLM (Gemini) ze schematem Answer — przepisy podane jako tekst <przepis id=…>", writes: "answer (status, tekst z [1] [2], citations), steps" },
-  retry: { reads: "question, hits", calls: "search na oryginalnym pytaniu (hybryda + reranker, bez przepisania)", writes: "hits (nowe + stare, maks. 14), retried = True, steps" },
   verify: { reads: "answer", calls: "baza (czy przepis istnieje) · rapidfuzz (czy cytat jest w tekście) · LLM-sędzia (czy popiera)", writes: "answer (bez błędnych cytatów), checks (status każdego cytatu), steps" },
   endBottom: { reads: "cały stan", calls: "—", writes: "stan końcowy → API → frontend" },
 };
@@ -233,7 +211,7 @@ export function AgentGraph() {
         <div className="card info"><h3>Stan (<code>AgentState</code>)</h3><p>Słownik, który „płynie” przez graf: pytanie, plan, znalezione przepisy, odpowiedź, wyniki weryfikacji. Węzeł zwraca tylko pola, które zmienia — LangGraph scala je ze stanem.</p></div>
         <div className="card info"><h3>Węzły</h3><p>Zwykłe funkcje Pythona: dostają stan, zwracają zmiany. Trzy z nich wywołują LLM (plan, answer, verify), reszta to kod deterministyczny i baza.</p></div>
         <div className="card info"><h3>Krawędzie warunkowe</h3><p>Funkcje routujące (<code>_route</code>, <code>_route_after_answer</code>) patrzą na stan i wybierają następny węzeł: odmowa kończy graf od razu, odpowiedź idzie do weryfikacji.</p></div>
-        <div className="card info"><h3>Pętla</h3><p>Po odmowie mimo znalezionych przepisów graf wraca do <code>answer</code> przez <code>retry</code>. Zwykły łańcuch tego nie umie; flaga <code>retried</code> pilnuje jednej iteracji.</p></div>
+        <div className="card info"><h3>Weryfikacja w grafie</h3><p>Węzeł <code>verify</code> działa przed wysłaniem wyniku: cytaty ocenione jako błędne są usuwane z odpowiedzi, zanim trafi ona do użytkownika.</p></div>
         <div className="card info"><h3>Streaming</h3><p><code>graph.stream(stream_mode="updates")</code> oddaje zmiany po każdym węźle — backend wysyła je przez SSE i stąd kroki agenta widać na żywo w czacie.</p></div>
         <div className="card info"><h3>Dlaczego nie pętla ReAct</h3><p>Agent, który sam w pętli wybiera narzędzia, zużywa 5–10 wywołań LLM na pytanie. Tu planer decyduje raz, więc pytanie kosztuje stałe 3 wywołania — mieści się w darmowym limicie.</p></div>
       </div>
@@ -246,7 +224,6 @@ graph.add_node("respond_directly", self.respond_directly)
 graph.add_node("gather", self.gather)
 graph.add_node("expand", self.expand)
 graph.add_node("answer", self.answer)
-graph.add_node("retry", self.retry)
 graph.add_node("verify", self.verify)
 
 graph.add_edge(START, "plan")
@@ -254,8 +231,7 @@ graph.add_conditional_edges("plan", _route, ["respond_directly", "gather"])
 graph.add_edge("respond_directly", END)
 graph.add_edge("gather", "expand")
 graph.add_edge("expand", "answer")
-graph.add_conditional_edges("answer", _route_after_answer, ["verify", "retry", END])
-graph.add_edge("retry", "answer")
+graph.add_conditional_edges("answer", _route_after_answer, ["verify", END])
 graph.add_edge("verify", END)
 return graph.compile()`}</pre>
       </details>

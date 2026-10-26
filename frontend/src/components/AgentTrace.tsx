@@ -8,7 +8,6 @@ const NEXT_LABEL: Record<string, string> = {
   gather: "Sprawdzam odesłania",
   expand: "Piszę odpowiedź z cytatami",
   answer: "Weryfikuję cytaty",
-  retry: "Piszę odpowiedź z cytatami",
 };
 
 function StepDetail({ step }: { step: Step }) {
@@ -22,14 +21,6 @@ function StepDetail({ step }: { step: Step }) {
         {(d.hits as string[]).slice(0, 8).map((h) => (
           <span className="chip" key={h}>{h}</span>
         ))}
-      </div>
-    );
-  }
-  if (step.node === "retry" && Array.isArray(d.new)) {
-    const fresh = d.new as string[];
-    return (
-      <div className="sub">
-        {fresh.length ? <>Nowe przepisy: {fresh.map((h) => <span className="chip" key={h}>{h}</span>)}</> : "Wyszukiwanie zwróciło te same przepisy"}
       </div>
     );
   }
