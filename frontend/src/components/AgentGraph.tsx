@@ -112,7 +112,7 @@ const KIND_LABEL: Record<Kind, string> = { llm: "LLM", tool: "narzędzia", plain
 export function AgentGraph() {
   const [scenarioId, setScenarioId] = useState("regular");
   const scenario = SCENARIOS.find((s) => s.id === scenarioId)!;
-  const [step, setStep] = useState(scenario.steps.length - 1);
+  const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [selected, setSelected] = useState<NodeId>("plan");
 
@@ -125,8 +125,10 @@ export function AgentGraph() {
 
   useEffect(() => { setSelected(scenario.steps[step].node); }, [step, scenario]);
 
-  const pick = (id: string) => { setScenarioId(id); setPlaying(false); setStep(SCENARIOS.find((s) => s.id === id)!.steps.length - 1); };
+  const last = scenario.steps.length - 1;
+  const pick = (id: string) => { setScenarioId(id); setPlaying(false); setStep(0); };
   const play = () => { setStep(0); setPlaying(true); };
+  const go = (i: number) => { setPlaying(false); setStep(Math.max(0, Math.min(last, i))); };
 
   const visible = scenario.steps.slice(0, step + 1);
   const activeNodes = new Set(visible.map((s) => s.node));
@@ -219,34 +221,44 @@ export function AgentGraph() {
             <dt>Zapisuje do stanu</dt><dd>{info.writes}</dd>
           </dl>
         </div>
-        <div className="card info">
+        <div className="card info step-card">
           <h3>Przebieg: {scenario.label.toLowerCase()}</h3>
-          {/* All scenarios share one grid cell, so the card keeps the height of the longest one. */}
-          <div className="trace-stack">
-            {SCENARIOS.map((sc) => {
-              const active = sc.id === scenarioId;
-              const at = active ? step : sc.steps.length - 1;
-              return (
-                <ol key={sc.id} className={`trace-list ${active ? "active" : ""}`} aria-hidden={!active}>
-                  {sc.steps.map((s, i) => (
-                    <li key={i} className={i === at ? "now" : i > at ? "todo" : ""} onClick={() => { setPlaying(false); setStep(i); }}>
+          {/* Every step of every scenario shares one grid cell, so the card keeps the height of the tallest. */}
+          <div className="step-stack">
+            {SCENARIOS.flatMap((sc) =>
+              sc.steps.map((s, i) => {
+                const active = sc.id === scenarioId && i === step;
+                return (
+                  <div key={`${sc.id}-${i}`} className={`step-view ${active ? "active" : ""}`} aria-hidden={!active}>
+                    <div className="step-head">
+                      <span className="step-num">{i + 1}</span>
                       <code>{N[s.node].name}</code>
-                      <div className="t-body">
-                        <strong>{s.title}</strong>
-                        {s.text && <p>{s.text}</p>}
-                        {s.quote && <blockquote><span>{s.quote.label}</span>„{s.quote.value}”</blockquote>}
-                        {s.chips && (
-                          <div className="t-chips">
-                            {s.chips.map((c) => <span key={c.label} className={`chip ${c.ok ? "ok" : ""}`}>{c.ok && "✓ "}{c.label}</span>)}
-                          </div>
-                        )}
+                      {KIND_LABEL[N[s.node].kind] && <span className={`g-pill ${N[s.node].kind}`}>{KIND_LABEL[N[s.node].kind]}</span>}
+                    </div>
+                    <strong className="step-title">{s.title}</strong>
+                    {s.text && <p>{s.text}</p>}
+                    {s.quote && <blockquote><span>{s.quote.label}</span>„{s.quote.value}”</blockquote>}
+                    {s.chips && (
+                      <div className="t-chips">
+                        {s.chips.map((c) => <span key={c.label} className={`chip ${c.ok ? "ok" : ""}`}>{c.ok && "✓ "}{c.label}</span>)}
                       </div>
-                    </li>
-                  ))}
-                </ol>
-              );
-            })}
+                    )}
+                  </div>
+                );
+              }),
+            )}
           </div>
+          <div className="step-nav">
+            <button className="step-btn" onClick={() => go(step - 1)} disabled={step === 0} aria-label="Poprzedni krok">← Wstecz</button>
+            <div className="step-dots">
+              {scenario.steps.map((s, i) => (
+                <button key={i} className={`step-dot ${i === step ? "now" : i < step ? "done" : ""}`} onClick={() => go(i)}
+                  aria-label={`Krok ${i + 1}: ${N[s.node].name}`} title={N[s.node].name} />
+              ))}
+            </div>
+            <button className="step-btn primary" onClick={() => go(step + 1)} disabled={step === last} aria-label="Następny krok">Dalej →</button>
+          </div>
+          <div className="step-count">Krok {step + 1} z {scenario.steps.length}</div>
         </div>
       </div>
 
