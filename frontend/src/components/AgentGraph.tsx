@@ -36,8 +36,6 @@ const EDGES: GEdge[] = [
   { id: "expand-answer", from: "expand", to: "answer", d: "M630 198 H668" },
   { id: "answer-verify", from: "answer", to: "verify", d: "M790 198 H863", conditional: true,
     label: "odpowiedź", lx: 826, ly: 216 },
-  { id: "answer-end", from: "answer", to: "endBottom", d: "M790 218 C 830 250, 860 300, 898 316", conditional: true,
-    label: "inne", lx: 836, ly: 282, anchor: "end" },
   { id: "verify-end", from: "verify", to: "endBottom", d: "M920 226 V296" },
 ];
 
