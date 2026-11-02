@@ -10,9 +10,9 @@ const MAX_CHARS = 500;
 const FALLBACK_EXAMPLES: Example[] = [
   { label: "Urlop", question: "Ile dni urlopu wypoczynkowego przysługuje mi po 12 latach pracy?" },
   { label: "Wypowiedzenie", question: "Jaki mam okres wypowiedzenia, jeśli pracuję w firmie od 4 lat?" },
-  { label: "Urlop ojcowski", question: "Ile trwa urlop ojcowski i do kiedy muszę go wykorzystać?" },
+  { label: "Urlop ojcowski", question: "Ile trwa urlop ojcowski?" },
   { label: "Praca zdalna", question: "Czy pracodawca może odmówić mi pracy zdalnej, jeśli wychowuję dziecko poniżej 4 lat?" },
-  { label: "Kary porządkowe", question: "Czy pracodawca może ukarać mnie karą pieniężną za spóźnienie?" },
+  { label: "BHP", question: "Czy mogę odmówić pracy, jeśli warunki zagrażają mojemu zdrowiu?" },
 ];
 const uid = () => Math.random().toString(36).slice(2);
 

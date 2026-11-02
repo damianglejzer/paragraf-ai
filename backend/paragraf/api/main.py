@@ -46,7 +46,7 @@ EXAMPLES = [
     },
     {
         "label": "Urlop ojcowski",
-        "question": "Ile trwa urlop ojcowski i do kiedy muszę go wykorzystać?",
+        "question": "Ile trwa urlop ojcowski?",
     },
     {
         "label": "Praca zdalna",
@@ -54,8 +54,8 @@ EXAMPLES = [
         "poniżej 4 lat?",
     },
     {
-        "label": "Kary porządkowe",
-        "question": "Czy pracodawca może ukarać mnie karą pieniężną za spóźnienie?",
+        "label": "BHP",
+        "question": "Czy mogę odmówić pracy, jeśli warunki zagrażają mojemu zdrowiu?",
     },
 ]
 BUSY_MESSAGE = (
