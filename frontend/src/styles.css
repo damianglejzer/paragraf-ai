@@ -336,8 +336,13 @@ table.results tr.best td { background: var(--primary-soft); font-weight: 600; }
 .step-view .chip { background: var(--surface); font-size: 12px; padding: 2px 8px; }
 .t-chips { display: flex; flex-wrap: wrap; }
 .step-view .chip.ok { background: var(--ok-soft); color: var(--ok); }
-.step-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
-.step-btn { border: 1px solid var(--border); background: var(--surface); color: var(--text-2); padding: 7px 14px; border-radius: 999px; font-size: 13.5px; font-weight: 500; transition: border-color .2s, color .2s, background-color .2s, opacity .2s; }
+/* equal side columns keep the progress block on the card's center axis whatever the button widths */
+.step-nav { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; margin-top: 14px; }
+@media (max-width: 480px) { .step-nav { gap: 8px; } .step-nav .step-btn { padding: 7px 14px; } .step-btn-label { display: none; } }
+.step-nav > .step-btn:first-child { justify-self: start; }
+.step-nav > .step-btn:last-child { justify-self: end; }
+.step-progress { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.step-btn { border: 1px solid var(--border); background: var(--surface); color: var(--text-2); padding: 7px 14px; border-radius: 999px; font-size: 13.5px; font-weight: 500; white-space: nowrap; transition: border-color .2s, color .2s, background-color .2s, opacity .2s; }
 .step-btn:hover:not(:disabled) { border-color: var(--primary-2); color: var(--text); }
 .step-btn.primary { background: var(--primary); border-color: var(--primary); color: var(--surface); }
 .step-btn.primary:hover:not(:disabled) { background: var(--primary-2); border-color: var(--primary-2); color: var(--surface); }
@@ -346,7 +351,7 @@ table.results tr.best td { background: var(--primary-soft); font-weight: 600; }
 .step-dot { width: 9px; height: 9px; padding: 0; border: 0; border-radius: 999px; background: var(--border); cursor: pointer; transition: width .3s ease, background-color .3s ease; }
 .step-dot.done { background: var(--primary-2); opacity: .55; }
 .step-dot.now { width: 24px; background: var(--primary); }
-.step-count { text-align: center; font-size: 12px; color: var(--text-3); margin-top: 8px; font-variant-numeric: tabular-nums; }
+.step-count { font-size: 12px; line-height: 1; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .step-view, .step-view.active, .step-dot { transition: none; transform: none; } }
 .lg-concepts .info p { font-size: 13.5px; }
 .code-block { padding: 12px 16px; }

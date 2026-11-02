@@ -249,16 +249,18 @@ export function AgentGraph() {
             )}
           </div>
           <div className="step-nav">
-            <button className="step-btn" onClick={() => go(step - 1)} disabled={step === 0} aria-label="Poprzedni krok">← Wstecz</button>
-            <div className="step-dots">
-              {scenario.steps.map((s, i) => (
-                <button key={i} className={`step-dot ${i === step ? "now" : i < step ? "done" : ""}`} onClick={() => go(i)}
-                  aria-label={`Krok ${i + 1}: ${N[s.node].name}`} title={N[s.node].name} />
-              ))}
+            <button className="step-btn" onClick={() => go(step - 1)} disabled={step === 0} aria-label="Poprzedni krok">←<span className="step-btn-label"> Wstecz</span></button>
+            <div className="step-progress">
+              <div className="step-dots">
+                {scenario.steps.map((s, i) => (
+                  <button key={i} className={`step-dot ${i === step ? "now" : i < step ? "done" : ""}`} onClick={() => go(i)}
+                    aria-label={`Krok ${i + 1}: ${N[s.node].name}`} title={N[s.node].name} />
+                ))}
+              </div>
+              <div className="step-count">Krok {step + 1} z {scenario.steps.length}</div>
             </div>
-            <button className="step-btn primary" onClick={() => go(step + 1)} disabled={step === last} aria-label="Następny krok">Dalej →</button>
+            <button className="step-btn primary" onClick={() => go(step + 1)} disabled={step === last} aria-label="Następny krok"><span className="step-btn-label">Dalej </span>→</button>
           </div>
-          <div className="step-count">Krok {step + 1} z {scenario.steps.length}</div>
         </div>
       </div>
 
