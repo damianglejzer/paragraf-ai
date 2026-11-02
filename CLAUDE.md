@@ -5,8 +5,8 @@ concrete article / § / paragraph (ust.). A separate step automatically verifies
 provision exists and actually supports the claim. The main differentiator is rigorous evaluation
 and citation verification, not the chat itself.
 
-Portfolio project for junior AI/ML Engineer roles. Priorities: everything runs on free tiers,
-the demo is smooth, fast and polished. Legal accuracy matters, but it is secondary to a working,
+Portfolio project for junior AI/ML Engineer roles. Priorities: low running cost (cheap OpenAI
+mini/nano models for the LLM, free tiers elsewhere), the demo is smooth, fast and polished. Legal accuracy matters, but it is secondary to a working,
 impressive demo. Data comes from the official Sejm ELI API (https://api.sejm.gov.pl/eli), using
 the newest consolidated text (tekst jednolity) that has an HTML version. No PDF parsing.
 

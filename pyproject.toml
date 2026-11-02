@@ -23,6 +23,7 @@ dependencies = [
     "uvicorn[standard]>=0.54.0",
     "sse-starlette>=3.5.0",
     "langfuse>=5.0.2",
+    "openai>=3.42.1",
 ]
 
 [dependency-groups]

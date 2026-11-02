@@ -20,7 +20,8 @@ def _require(value: str, name: str) -> str:
     return value
 
 
-def make_embedder(settings: Settings | None = None) -> Embedder:
+def make_embedder(settings: Settings | None = None, *, retries: int = 1) -> Embedder:
+    """`retries`: how many times to retry a rate-limited request (batch evals pass more)."""
     s = settings or get_settings()
     if s.embedding_provider == "fake":
         return FakeEmbedder(s.embedding_dim)
@@ -41,6 +42,7 @@ def make_embedder(settings: Settings | None = None) -> Embedder:
             s.embedding_model,
             s.embedding_dim,
             _cache("embeddings"),
+            retries=retries,
         )
     raise ValueError(f"unknown EMBEDDING_PROVIDER={s.embedding_provider}")
 
@@ -52,19 +54,26 @@ def make_llm(
     s = settings or get_settings()
     if s.llm_provider == "fake":
         return FakeLLM()
+    model, thinking = (
+        (s.llm_model, s.llm_thinking) if role == "answer" else (s.judge_model, s.judge_thinking)
+    )
+    if s.llm_provider == "openai":
+        from paragraf.providers.openai_llm import OpenAILLM
+
+        return OpenAILLM(
+            _require(s.openai_api_key, "OPENAI_API_KEY"), model, _cache("llm"), thinking or None
+        )
     if s.llm_provider == "gemini":
         from paragraf.providers.gemini import GeminiLLM
 
-        model, thinking = (
-            (s.llm_model, s.llm_thinking) if role == "answer" else (s.judge_model, s.judge_thinking)
-        )
         return GeminiLLM(
             _require(s.gemini_api_key, "GEMINI_API_KEY"), model, _cache("llm"), thinking or None
         )
     raise ValueError(f"unknown LLM_PROVIDER={s.llm_provider}")
 
 
-def make_reranker(settings: Settings | None = None) -> Reranker:
+def make_reranker(settings: Settings | None = None, *, retries: int = 1) -> Reranker:
+    """`retries`: how many times to retry a rate-limited request (batch evals pass more)."""
     s = settings or get_settings()
     match s.reranker_provider:
         case "fake":
@@ -77,7 +86,10 @@ def make_reranker(settings: Settings | None = None) -> Reranker:
             from paragraf.providers.rerankers import JinaReranker
 
             return JinaReranker(
-                _require(s.jina_api_key, "JINA_API_KEY"), s.reranker_model, _cache("rerank")
+                _require(s.jina_api_key, "JINA_API_KEY"),
+                s.reranker_model,
+                _cache("rerank"),
+                retries=retries,
             )
         case "llm":
             from paragraf.providers.rerankers import LLMReranker

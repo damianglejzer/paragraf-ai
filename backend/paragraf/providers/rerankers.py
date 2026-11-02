@@ -1,4 +1,4 @@
-"""Reranker implementations: Jina API, LLM-as-reranker (Gemini), and a no-op."""
+"""Reranker implementations: Jina API, LLM-as-reranker, and a no-op."""
 
 import httpx
 from pydantic import BaseModel, Field
@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from paragraf.providers import usage
 from paragraf.providers.base import LLM, ProviderUnavailable
 from paragraf.providers.cache import DiskCache
+from paragraf.providers.jina import post_with_retry
 
 
 class NoReranker:
@@ -21,25 +22,26 @@ class JinaReranker:
     name = "jina"
     URL = "https://api.jina.ai/v1/rerank"
 
-    def __init__(self, api_key: str, model: str, cache: DiskCache | None = None) -> None:
+    def __init__(
+        self, api_key: str, model: str, cache: DiskCache | None = None, retries: int = 1
+    ) -> None:
         self._http = httpx.Client(timeout=30.0, headers={"Authorization": f"Bearer {api_key}"})
         self.model = model
         self._cache = cache
+        self._retries = retries  # see post_with_retry
 
     def rerank(self, query: str, documents: list[str], top_n: int) -> list[tuple[int, float]]:
         key = DiskCache.key("rerank", self.model, query, documents, top_n)
         if self._cache and (hit := self._cache.get(key)) is not None:
             return [(int(i), float(s)) for i, s in hit]
-        resp = self._http.post(
-            self.URL,
-            json={
-                "model": self.model,
-                "query": query,
-                "documents": documents,
-                "top_n": top_n,
-                "return_documents": False,
-            },
-        )
+        payload = {
+            "model": self.model,
+            "query": query,
+            "documents": documents,
+            "top_n": top_n,
+            "return_documents": False,
+        }
+        resp = post_with_retry(self._http, self.URL, payload, self._retries)
         if resp.status_code in (402, 429):
             raise ProviderUnavailable(f"Jina reranker unavailable: {resp.status_code}")
         resp.raise_for_status()

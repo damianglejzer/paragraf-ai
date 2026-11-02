@@ -1,7 +1,7 @@
 """LangGraph agent: plan -> (clarify | refuse | gather -> expand -> answer -> verify).
 
 One planner call decides what to do and rewrites the query; tools run deterministically.
-This keeps a request at ~3 LLM calls (planner, answer, judge), which fits free-tier quotas,
+This keeps a request at ~3 LLM calls (planner, answer, judge), which keeps it fast and cheap,
 while still giving the agent the ability to ask for clarification, refuse, look up cited
 articles and follow cross-references. Each node appends a `step` event that the UI renders as a
 live trace.

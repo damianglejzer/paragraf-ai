@@ -1,6 +1,6 @@
 """Tiny persistent key-value cache (SQLite) for embeddings and LLM calls.
 
-Free-tier quotas are the bottleneck: re-running indexing or evals must not re-pay for
+API calls cost time and money: re-running indexing or evals must not re-pay for
 identical requests.
 """
 

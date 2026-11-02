@@ -1,7 +1,7 @@
 """Per-request usage tracking (tokens, cost) shared by all providers via a context variable.
 
-We run on free tiers and pay $0; `cost_usd` is the *equivalent paid-tier cost*, reported so the
-demo can show what the system would cost at list prices (docs/DECISIONS.md, D11).
+`cost_usd` is computed from list prices. LLM calls are billed (OpenAI); Jina runs on a free token
+pool, so its share is an equivalent paid-tier cost (docs/DECISIONS.md, D12 and D17).
 """
 
 from collections.abc import Iterator
@@ -10,8 +10,10 @@ from contextvars import ContextVar
 
 from pydantic import BaseModel
 
-# USD per 1M tokens (input, output), list prices checked 2026-10-18
+# USD per 1M tokens (input, output), list prices checked 2026-10-18 (OpenAI: 2026-11-02)
 PRICES: dict[str, tuple[float, float]] = {
+    "gpt-5.4-mini": (0.75, 4.50),
+    "gpt-5.4-nano": (0.20, 1.25),
     "gemini-3.1-flash-lite": (0.25, 1.50),
     "gemini-3.5-flash": (0.30, 2.50),
     "gemma-4-26b-a4b-it": (0.0, 0.0),  # offered free-only through the Gemini API

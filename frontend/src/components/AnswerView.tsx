@@ -80,8 +80,8 @@ export function AnswerView({ msg, onOpen, onRetry }: { msg: AssistantMessage; on
           <div className="meta">
             <span><Clock size={13} /> {(p.metrics.total_ms / 1000).toFixed(1)} s</span>
             <span><Zap size={13} /> {p.metrics.tokens.toLocaleString("pl-PL")} tokenów · {p.metrics.llm_calls} {plural(p.metrics.llm_calls, "wywołanie", "wywołania", "wywołań")} API</span>
-            <span title="Demo działa na darmowych limitach API — faktyczny koszt to $0. To szacunek w cenach płatnego planu.">
-              <Coins size={13} /> ≈ ${p.metrics.cost_usd.toFixed(4)} w płatnym planie (demo: $0)
+            <span title="Koszt wywołań modeli (OpenAI, Jina) dla tego pytania, według cennika API.">
+              <Coins size={13} /> ≈ ${p.metrics.cost_usd.toFixed(4)} za pytanie
             </span>
             {p.cached && <span>⚡ z cache</span>}
           </div>

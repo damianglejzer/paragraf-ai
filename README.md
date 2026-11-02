@@ -5,7 +5,8 @@ An AI assistant for Polish law that **always cites the exact article / § / para
 the quoted fragment is really in it, and that it supports the claim. The chat is the surface; the
 point of the project is retrieval quality and citation verification.
 
-> Portfolio project. Not legal advice. Runs entirely on free tiers.
+> Portfolio project. Not legal advice. LLM calls use the OpenAI API (cheap mini/nano models);
+> embeddings and reranking use Jina's free tier.
 
 ## What it does
 
@@ -29,7 +30,7 @@ point of the project is retrieval quality and citation verification.
 Requirements: Docker, [uv](https://docs.astral.sh/uv/), Node 20+.
 
 ```bash
-cp .env.example .env          # then fill in GEMINI_API_KEY and JINA_API_KEY (both free)
+cp .env.example .env          # then fill in OPENAI_API_KEY and JINA_API_KEY (Jina is free)
 ./scripts/dev.sh              # Postgres + API (:8010) + frontend (:5173)
 ```
 
@@ -43,7 +44,7 @@ uv run python -m paragraf.api.warm_cache
 ```
 
 Free keys:
-- Gemini: https://aistudio.google.com/apikey
+- OpenAI: https://platform.openai.com/api-keys
 - Jina: https://jina.ai (a new key comes with 10M free tokens)
 
 ### Step by step (instead of `dev.sh`)
@@ -56,6 +57,17 @@ uv run python -m paragraf.indexing.index    # lemmas + embeddings
 uv run uvicorn paragraf.api.main:app --port 8010
 cd frontend && npm install && npm run dev
 ```
+
+### Evaluation
+
+```bash
+uv run python -m paragraf.evaluation.generate   # ~32 synthetic questions, ~70 LLM calls
+uv run python -m paragraf.evaluation.run_all    # retrieval + generation, writes evals/results/latest.json
+```
+
+The suite is deliberately small: `run_all` makes roughly 200 LLM calls (a few cents with the
+mini/nano models) and runs 4 questions in parallel. LLM responses are cached on disk, so a re-run only pays for unfinished calls. The
+results appear on the "Jak to działa" page.
 
 ### MCP server
 
@@ -71,7 +83,7 @@ uv run python -m paragraf.mcp_server.server --http   # streamable HTTP on :8765
 | Data | Sejm ELI API (HTML consolidated texts), Pydantic validation, on-disk cache |
 | DB | PostgreSQL 16 + pgvector (Docker locally) |
 | Retrieval | spaCy `pl_core_news_sm` lemmas → `tsvector('simple')`, Jina v3 embeddings, RRF, Jina reranker |
-| LLM | Gemini 3.1 Flash-Lite (free tier) behind a provider interface (`.env`) |
+| LLM | OpenAI `gpt-5.4-mini` (answers) and `gpt-5.4-nano` (citation judge) behind a provider interface (`.env`); Gemini still supported |
 | Agent | LangGraph |
 | API | FastAPI + Server-Sent Events |
 | Frontend | React + TypeScript + Vite |

@@ -55,7 +55,7 @@ EXAMPLES = [
     },
 ]
 BUSY_MESSAGE = (
-    "Demo korzysta z darmowych limitów API i w tej chwili są one wyczerpane. "
+    "Usługa AI jest w tej chwili przeciążona lub niedostępna. "
     "Spróbuj za minutę albo wybierz jedno z przykładowych pytań — te odpowiedzi są zapisane."
 )
 BUDGET_MESSAGE = (

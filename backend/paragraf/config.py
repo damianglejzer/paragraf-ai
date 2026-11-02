@@ -16,9 +16,10 @@ class Settings(BaseSettings):
     eli_base_url: str = "https://api.sejm.gov.pl/eli"
 
     llm_provider: str = "fake"
-    llm_model: str = "gemini-3.1-flash-lite"
-    llm_thinking: str = "minimal"
-    judge_model: str = "gemini-3.1-flash-lite"
+    llm_model: str = "gpt-5.4-mini"
+    # reasoning effort (OpenAI) / thinking level (Gemini); empty = model default
+    llm_thinking: str = "none"
+    judge_model: str = "gpt-5.4-nano"
     judge_thinking: str = "low"
     embedding_provider: str = "fake"
     embedding_model: str = "jina-embeddings-v3"
@@ -26,6 +27,7 @@ class Settings(BaseSettings):
     reranker_provider: str = "none"
     reranker_model: str = "jina-reranker-v2-base-multilingual"
 
+    openai_api_key: str = ""
     gemini_api_key: str = ""
     jina_api_key: str = ""
 
