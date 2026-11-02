@@ -357,3 +357,26 @@ re-indexing, and Jina was not the bottleneck. The Gemini provider remains availa
 eval run at list prices. The per-IP rate limit and daily request budget now protect real money,
 not only quotas. The eval dataset generated earlier with Gemini is kept (`source:
 "synthetic:gemini"`); all eval answers are regenerated with the new models.
+
+---
+
+## D18. The full Labour Code as the main subject (revises D9)
+
+**Context.** D9 indexed four chapters of the Labour Code plus a few topics from two other acts.
+For an interview demo, "an assistant that knows the whole Labour Code" is a clearer story than
+"selected topics from three statutes", and visitors ask about labour law beyond those chapters
+(paternity leave, remote work, disciplinary penalties).
+
+**Decision.** Index the Labour Code in full: 513 articles, 1178 retrieval units (454 before).
+The KC and consumer-rights topics stay. The planner treats any question governed by the Labour
+Code as in scope. The eval set was regenerated with the Labour Code as the main source
+(25 of 33 questions) and the example questions now come from the newly indexed parts.
+
+**Alternatives.** Keeping the selected chapters: cheaper to evaluate, but most real labour-law
+questions would be refused. Embedding with OpenAI instead of Jina: it would mean re-embedding the
+whole corpus for no quality gain; the extra Labour Code cost about 2% of the free Jina pool.
+
+**Consequences.** Retrieval works over 2.6x more Labour Code provisions. On the new set the full
+pipeline found the expected article in the top 5 for 96% of questions, answered 85% correctly and
+showed no wrong citations. With ~30 questions results vary between runs (the plain-RAG baseline
+moved between 33% and 52% correctness across two runs), so only large differences are meaningful.

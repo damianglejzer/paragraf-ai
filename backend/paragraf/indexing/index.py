@@ -112,7 +112,7 @@ def main() -> None:
     parser.add_argument("--skip-naive", action="store_true")
     args = parser.parse_args()
     settings = get_settings()
-    embedder = make_embedder(settings)
+    embedder = make_embedder(settings, retries=5)  # batch job: wait out rate limits
     log.info("embedder: %s (dim=%d)", embedder.name, embedder.dim)
     with repo.connect() as conn:
         repo.init_schema(conn, settings.embedding_dim)

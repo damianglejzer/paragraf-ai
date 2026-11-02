@@ -1,18 +1,14 @@
-"""Demo corpus scope: which statutes and which parts of them are indexed.
+"""Corpus scope: which statutes and which parts of them are indexed.
 
-The demo deliberately covers a small set of everyday topics, so that indexing and evaluation fit
-within free API quotas and the app stays fast (docs/DECISIONS.md, D9). The parser handles whole
-statutes; widening the scope means adding entries here and re-running ingest + index.
+The Labour Code is indexed in full: it is the app's main subject (docs/DECISIONS.md, D18). The
+other acts keep a few everyday topics from the original demo (D9). Widening the scope means
+adding entries here and re-running ingest + index.
 """
 
-# act code -> hierarchy prefixes to keep (a provision is kept if its hierarchy starts with one)
+# act code -> hierarchy prefixes to keep (a provision is kept if its hierarchy starts with one;
+# the empty prefix keeps the whole act)
 CORPUS_SCOPE: dict[str, list[tuple[str, ...]]] = {
-    "KP": [
-        ("Dział II",),  # Stosunek pracy: umowy, wypowiedzenie, rozwiązanie umowy
-        ("Dział VI",),  # Czas pracy, nadgodziny
-        ("Dział VII",),  # Urlopy pracownicze
-        ("Dział XIV",),  # Przedawnienie roszczeń
-    ],
+    "KP": [()],
     "UPK": [
         ("Rozdział 1",),  # Przepisy ogólne
         ("Rozdział 3",),  # Umowy na odległość i poza lokalem: obowiązki informacyjne
@@ -27,13 +23,11 @@ CORPUS_SCOPE: dict[str, list[tuple[str, ...]]] = {
 }
 
 TOPICS = [
-    "umowa o pracę i wypowiedzenie",
-    "czas pracy i nadgodziny",
-    "urlop wypoczynkowy",
+    "cały Kodeks pracy",
     "zwrot towaru kupionego przez internet",
     "reklamacja towaru niezgodnego z umową",
     "najem mieszkania",
-    "przedawnienie roszczeń",
+    "przedawnienie roszczeń cywilnych",
 ]
 
 

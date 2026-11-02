@@ -1,6 +1,7 @@
 # Paragraf AI
 
-An AI assistant for Polish law that **always cites the exact article / § / paragraph** and then
+An AI assistant for Polish labour law, built on **the full Labour Code (Kodeks pracy)**. It
+**always cites the exact article / § / paragraph** and then
 **automatically verifies every citation**. The verifier checks that the provision exists, that
 the quoted fragment is really in it, and that it supports the claim. The chat is the surface; the
 point of the project is retrieval quality and citation verification.
@@ -102,5 +103,6 @@ uv run pytest -m integration  # needs the local DB
 
 ## Status
 
-- Done: local demo (data pipeline, hybrid retrieval, agent, verification, MCP, API, UI).
-- Next: full evaluation run and ablation table, security test suite in CI, public deployment.
+- Done: local demo (data pipeline, hybrid retrieval, agent, verification, MCP, API, UI), the full
+  Labour Code indexed (1178 retrieval units), eval suite with results on the "Jak to działa" page.
+- Next: security test suite in CI, public deployment.

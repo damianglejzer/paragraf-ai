@@ -1,6 +1,7 @@
 # Paragraf AI
 
-AI assistant for Polish law. An agent answers questions about statutes and always cites a
+AI assistant for Polish labour law (the full Kodeks pracy, plus a few topics from KC and the
+consumer rights act). An agent answers questions about statutes and always cites a
 concrete article / § / paragraph (ust.). A separate step automatically verifies that each cited
 provision exists and actually supports the claim. The main differentiator is rigorous evaluation
 and citation verification, not the chat itself.

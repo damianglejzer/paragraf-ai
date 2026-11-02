@@ -41,17 +41,21 @@ EXAMPLES = [
         "question": "Ile dni urlopu wypoczynkowego przysługuje mi po 12 latach pracy?",
     },
     {
-        "label": "Zwrot towaru",
-        "question": "Ile mam czasu na odstąpienie od umowy zakupu w sklepie internetowym?",
-    },
-    {
         "label": "Wypowiedzenie",
         "question": "Jaki mam okres wypowiedzenia, jeśli pracuję w firmie od 4 lat?",
     },
-    {"label": "Przedawnienie", "question": "Po ilu latach przedawnia się zwykły dług?"},
     {
-        "label": "Najem",
-        "question": "Czy wynajmujący może podnieść czynsz za mieszkanie w trakcie najmu?",
+        "label": "Urlop ojcowski",
+        "question": "Ile trwa urlop ojcowski i do kiedy muszę go wykorzystać?",
+    },
+    {
+        "label": "Praca zdalna",
+        "question": "Czy pracodawca może odmówić mi pracy zdalnej, jeśli wychowuję dziecko "
+        "poniżej 4 lat?",
+    },
+    {
+        "label": "Kary porządkowe",
+        "question": "Czy pracodawca może ukarać mnie karą pieniężną za spóźnienie?",
     },
 ]
 BUSY_MESSAGE = (

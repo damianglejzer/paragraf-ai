@@ -9,10 +9,10 @@ import type { AssistantMessage, Citation, Example, Message } from "./types";
 const MAX_CHARS = 500;
 const FALLBACK_EXAMPLES: Example[] = [
   { label: "Urlop", question: "Ile dni urlopu wypoczynkowego przysługuje mi po 12 latach pracy?" },
-  { label: "Zwrot towaru", question: "Ile mam czasu na odstąpienie od umowy zakupu w sklepie internetowym?" },
   { label: "Wypowiedzenie", question: "Jaki mam okres wypowiedzenia, jeśli pracuję w firmie od 4 lat?" },
-  { label: "Przedawnienie", question: "Po ilu latach przedawnia się zwykły dług?" },
-  { label: "Najem", question: "Czy wynajmujący może podnieść czynsz za mieszkanie w trakcie najmu?" },
+  { label: "Urlop ojcowski", question: "Ile trwa urlop ojcowski i do kiedy muszę go wykorzystać?" },
+  { label: "Praca zdalna", question: "Czy pracodawca może odmówić mi pracy zdalnej, jeśli wychowuję dziecko poniżej 4 lat?" },
+  { label: "Kary porządkowe", question: "Czy pracodawca może ukarać mnie karą pieniężną za spóźnienie?" },
 ];
 const uid = () => Math.random().toString(36).slice(2);
 
@@ -112,9 +112,9 @@ export default function App() {
                   <div className="hero">
                     <h1>Odpowiedzi tylko z ustaw.<br /><em>Bez halucynacji.</em></h1>
                     <p>
-                      Agent AI odpowiada na pytania o prawo pracy, prawa konsumenta i najem — zawsze wskazując
-                      konkretny artykuł, paragraf lub ustęp. Osobny krok automatycznie weryfikuje, czy cytowany
-                      przepis istnieje i naprawdę popiera odpowiedź.
+                      Agent AI odpowiada na pytania z prawa pracy na podstawie całego Kodeksu pracy — zawsze
+                      wskazując konkretny artykuł, paragraf lub ustęp. Osobny krok automatycznie weryfikuje, czy
+                      cytowany przepis istnieje i naprawdę popiera odpowiedź.
                     </p>
                     <div className="features">
                       <span className="feature"><Check size={13} /> oficjalne teksty z API Sejmu</span>

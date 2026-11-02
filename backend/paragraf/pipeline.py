@@ -98,7 +98,12 @@ def run_pipeline(
 
 
 def drop_wrong(answer: Answer, checks: list[CitationCheck]) -> Answer:
-    """Remove citations judged wrong and strip their [n] markers; renumber the rest."""
+    """Remove citations judged wrong and strip their [n] markers; renumber the rest.
+
+    With nothing to remove the answer is returned as is (formatting included).
+    """
+    if all(c.status != "wrong" for c in checks):
+        return answer
     keep = [c.index for c in checks if c.status != "wrong"]
     renumber = {old: new for new, old in enumerate(keep, start=1)}
     text = answer.answer

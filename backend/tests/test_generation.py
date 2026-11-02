@@ -117,3 +117,16 @@ def test_generate_answer_refuses_without_context() -> None:
     answer, _ = generate_answer(FakeLLM(), "Jak upiec sernik?", [])
     assert answer.status == "refuse"
     assert answer.citations == []
+
+
+def test_drop_wrong_keeps_answer_untouched_when_nothing_is_wrong() -> None:
+    from paragraf.generation.answer import Answer, Citation
+    from paragraf.generation.verify import CitationCheck
+
+    answer = Answer(
+        status="answer",
+        answer="Przysługuje 26 dni urlopu [1].\n\nTo wynika z ustawy.",
+        citations=[Citation(provision_id="KP:art_154:par_1", quote="26 dni", claim="26 dni")],
+    )
+    check = CitationCheck.model_construct(index=1, status="verified")
+    assert drop_wrong(answer, [check]) is answer

@@ -20,6 +20,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from paragraf.config import get_settings
 from paragraf.corpus import TOPICS
 from paragraf.db import repository as repo
 from paragraf.evaluation.dataset import AutoCheck, EvalItem, save_dataset
@@ -28,9 +29,9 @@ from paragraf.providers.factory import make_llm
 
 log = logging.getLogger("paragraf.generate")
 
-# Deliberately small (~32 items): the whole eval suite runs in minutes for a few cents.
-# Target counts per act for single-provision questions, roughly proportional to corpus size.
-REGULAR_PER_ACT = {"KP": 8, "UPK": 5, "KC": 3}
+# Deliberately small (~33 items): the whole eval suite runs in minutes for a few cents.
+# Target counts per act for single-provision questions; the Labour Code is the main subject.
+REGULAR_PER_ACT = {"KP": 12, "UPK": 3, "KC": 2}
 MULTI_TOTAL = 5
 TRICKY_TOTAL = 5
 OOS_TOTAL = 6
@@ -249,7 +250,11 @@ def main() -> None:
     for cat, limit in limits.items():
         final += [i for i in kept if i.category == cat][:limit]
     final += [o.model_copy(update={"auto_check": auto_check(judge, o, by_id)}) for o in oos]
-    final = [i.model_copy(update={"id": f"q{n:03d}"}) for n, i in enumerate(final, start=1)]
+    source = f"synthetic:{get_settings().llm_model}"
+    final = [
+        i.model_copy(update={"id": f"q{n:03d}", "source": source})
+        for n, i in enumerate(final, start=1)
+    ]
     save_dataset(final)
     stats = {cat: sum(i.category == cat for i in final) for cat in [*limits, "out_of_scope"]}
     log.info(

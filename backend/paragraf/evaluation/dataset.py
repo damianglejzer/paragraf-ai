@@ -28,7 +28,7 @@ class EvalItem(BaseModel):
     reference_answer: str
     category: Category
     verified: bool = False  # True only after human review; synthetic items start False
-    source: str = "synthetic:gemini"
+    source: str = "synthetic"  # generate.py records the model, e.g. "synthetic:gpt-5.4-mini"
     act: str | None = None
     auto_check: AutoCheck | None = None
 
