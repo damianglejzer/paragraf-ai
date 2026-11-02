@@ -264,15 +264,6 @@ export function AgentGraph() {
         </div>
       </div>
 
-      <div className="grid-3 lg-concepts">
-        <div className="card info"><h3>Stan (<code>AgentState</code>)</h3><p>Słownik, który „płynie” przez graf: pytanie, plan, znalezione przepisy, odpowiedź, wyniki weryfikacji. Węzeł zwraca tylko pola, które zmienia — LangGraph scala je ze stanem.</p></div>
-        <div className="card info"><h3>Węzły</h3><p>Zwykłe funkcje Pythona: dostają stan, zwracają zmiany. Trzy z nich wywołują LLM (plan, answer, verify), reszta to kod deterministyczny i baza.</p></div>
-        <div className="card info"><h3>Krawędzie warunkowe</h3><p>Funkcje routujące (<code>_route</code>, <code>_route_after_answer</code>) patrzą na stan i wybierają następny węzeł: odmowa kończy graf od razu, odpowiedź idzie do weryfikacji.</p></div>
-        <div className="card info"><h3>Weryfikacja w grafie</h3><p>Węzeł <code>verify</code> działa przed wysłaniem wyniku: cytaty ocenione jako błędne są usuwane z odpowiedzi, zanim trafi ona do użytkownika.</p></div>
-        <div className="card info"><h3>Streaming</h3><p><code>graph.stream(stream_mode="updates")</code> oddaje zmiany po każdym węźle — backend wysyła je przez SSE i stąd kroki agenta widać na żywo w czacie.</p></div>
-        <div className="card info"><h3>Dlaczego nie pętla ReAct</h3><p>Agent, który sam w pętli wybiera narzędzia, zużywa 5–10 wywołań LLM na pytanie. Tu planer decyduje raz, więc pytanie kosztuje stałe 3 wywołania — mieści się w darmowym limicie.</p></div>
-      </div>
-
       <details className="card code-block">
         <summary>Kod budujący graf (<code>backend/paragraf/agent/graph.py</code>)</summary>
         <pre>{`graph = StateGraph(AgentState)
