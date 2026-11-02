@@ -133,6 +133,8 @@ a { color: var(--primary); }
 .example {
   text-align: left; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius);
   padding: 14px 16px; box-shadow: var(--shadow); transition: transform .15s, border-color .15s;
+  /* buttons center their content vertically; pin it to the top so labels line up across cards */
+  display: flex; flex-direction: column; justify-content: flex-start;
 }
 .example:hover { transform: translateY(-2px); border-color: var(--primary-2); }
 .example .label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--gold); }
