@@ -319,9 +319,19 @@ table.results tr.best td { background: var(--primary-soft); font-weight: 600; }
 .g-pill.llm { background: var(--primary-soft); color: var(--primary); }
 .g-pill.tool { background: var(--gold-soft); color: var(--gold); }
 .g-pill.plain { background: var(--surface-2); color: var(--text-3); }
-.io { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; margin: 10px 0 0; font-size: 13.5px; }
-.io dt { color: var(--text-3); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; padding-top: 2px; }
-.io dd { margin: 0; color: var(--text); }
+.node-stack { display: grid; }
+.node-info { grid-area: 1 / 1; display: flex; flex-direction: column; gap: 14px; opacity: 0; visibility: hidden; transition: opacity .25s ease, visibility 0s linear .25s; }
+.node-info.active { opacity: 1; visibility: visible; transition: opacity .25s ease .05s, visibility 0s; }
+.node-info h3 { margin-bottom: 0; }
+.node-summary { margin: 0; font-size: 14.5px; line-height: 1.5; color: var(--text); }
+.node-sec { display: flex; flex-direction: column; gap: 7px; padding-top: 12px; border-top: 1px solid var(--border); }
+.node-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); }
+.node-fields { display: flex; flex-wrap: wrap; gap: 6px; }
+.node-fields code { font-size: 12.5px; padding: 3px 9px; border-radius: 7px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+.node-does { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; color: var(--text-2); line-height: 1.45; }
+.node-does li { position: relative; padding-left: 16px; }
+.node-does li::before { content: ""; position: absolute; left: 2px; top: .6em; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
+@media (prefers-reduced-motion: reduce) { .node-info, .node-info.active { transition: none; } }
 .step-card { display: flex; flex-direction: column; }
 .step-stack { display: grid; margin-top: 12px; flex: 1; }
 .step-view { grid-area: 1 / 1; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 12px; background: var(--primary-soft); opacity: 0; visibility: hidden; transform: translateY(6px); transition: opacity .3s ease, transform .3s ease, visibility 0s linear .3s; }

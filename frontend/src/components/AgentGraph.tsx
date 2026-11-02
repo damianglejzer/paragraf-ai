@@ -94,17 +94,79 @@ const SCENARIOS: Scenario[] = [
   },
 ];
 
-interface NodeInfo { reads: string; calls: string; writes: string }
+interface NodeInfo { summary: string; reads: string[]; does: string[]; writes: string[] }
 const INFO: Record<NodeId, NodeInfo> = {
-  start: { reads: "—", calls: "—", writes: "stan początkowy: question, history, steps = []" },
-  plan: { reads: "question, history, today", calls: "LLM (Gemini) ze schematem Plan", writes: "plan (action, search_query, references, message), today, steps" },
-  respond: { reads: "plan.action, plan.message", calls: "nic — ani LLM, ani bazy", writes: "answer (status clarify / refuse), checks = []" },
-  endTop: { reads: "cały stan", calls: "—", writes: "stan końcowy → API → frontend" },
-  gather: { reads: "plan, question", calls: "get_article (wskazane artykuły), search_law → Jina: embeddingi + reranker", writes: "hits (przepisy do kontekstu), steps" },
-  expand: { reads: "hits", calls: "follow_reference — tabela provision_refs, bez AI", writes: "hits (+ maks. 3 przepisy z odesłań), steps" },
-  answer: { reads: "question, hits, history", calls: "LLM (Gemini) ze schematem Answer — przepisy podane jako tekst <przepis id=…>", writes: "answer (status, tekst z [1] [2], citations), steps" },
-  verify: { reads: "answer", calls: "baza (czy przepis istnieje) · rapidfuzz (czy cytat jest w tekście) · LLM-sędzia (czy popiera)", writes: "answer (bez błędnych cytatów), checks (status każdego cytatu), steps" },
-  endBottom: { reads: "cały stan", calls: "—", writes: "stan końcowy → API → frontend" },
+  start: {
+    summary: "Punkt wejścia. Tworzy stan, który przepłynie przez wszystkie węzły.",
+    reads: [],
+    does: ["Przyjmuje pytanie i historię rozmowy z API"],
+    writes: ["question", "history"],
+  },
+  plan: {
+    summary: "Jedno wywołanie LLM decyduje, co zrobić z pytaniem.",
+    reads: ["question", "history"],
+    does: [
+      "Wybiera akcję: szukaj, pobierz wskazany artykuł, dopytaj albo odmów",
+      "Przepisuje pytanie na język ustaw",
+      "Wyłapuje artykuły podane wprost, np. „art. 154 KP”",
+    ],
+    writes: ["plan"],
+  },
+  respond: {
+    summary: "Kończy bez wyszukiwania, gdy trzeba dopytać albo odmówić.",
+    reads: ["plan"],
+    does: ["Przekazuje wiadomość napisaną już przez planera", "Nie wywołuje LLM ani bazy"],
+    writes: ["answer"],
+  },
+  endTop: {
+    summary: "Koniec krótkiej ścieżki: 1 wywołanie LLM, około sekundy.",
+    reads: [],
+    does: ["Dopytanie lub odmowa trafia do czatu"],
+    writes: [],
+  },
+  gather: {
+    summary: "Zbiera przepisy, które trafią do kontekstu odpowiedzi.",
+    reads: ["plan", "question"],
+    does: [
+      "Pobiera artykuły wskazane wprost w pytaniu",
+      "Szuka hybrydowo: pełnotekstowo i wektorowo, wyniki łączy fuzja RRF",
+      "Reranker wybiera najtrafniejsze przepisy",
+    ],
+    writes: ["hits"],
+  },
+  expand: {
+    summary: "Dokłada przepisy, do których odsyłają znalezione artykuły.",
+    reads: ["hits"],
+    does: ["Sprawdza odesłania typu „art. 22 § 1” w najlepszych wynikach", "Dodaje najwyżej 3 przepisy, bez użycia AI"],
+    writes: ["hits"],
+  },
+  answer: {
+    summary: "LLM pisze odpowiedź wyłącznie na podstawie znalezionych przepisów.",
+    reads: ["question", "hits", "history"],
+    does: [
+      "Oznacza twierdzenia markerami [1], [2]…",
+      "Do każdego dołącza dosłowny cytat z przepisu",
+      "Odmawia, gdy przepisy nie dają podstawy do odpowiedzi",
+    ],
+    writes: ["answer"],
+  },
+  verify: {
+    summary: "Sprawdza każdy cytat, zanim odpowiedź trafi do użytkownika.",
+    reads: ["answer"],
+    does: [
+      "Czy przepis istnieje w bazie",
+      "Czy cytat naprawdę jest w tekście przepisu",
+      "Czy przepis popiera twierdzenie (ocenia LLM-sędzia)",
+      "Usuwa cytaty ocenione jako błędne",
+    ],
+    writes: ["answer", "checks"],
+  },
+  endBottom: {
+    summary: "Koniec pełnej ścieżki: 3 wywołania LLM.",
+    reads: [],
+    does: ["Odpowiedź, cytaty ze statusami i kroki agenta trafiają do czatu"],
+    writes: [],
+  },
 };
 
 const KIND_LABEL: Record<Kind, string> = { llm: "LLM", tool: "narzędzia", plain: "bez LLM", terminal: "" };
@@ -135,9 +197,6 @@ export function AgentGraph() {
   const activeEdges = new Set(visible.map((s) => s.edge).filter(Boolean) as string[]);
   const current = scenario.steps[step].node;
   const order = (id: NodeId) => visible.map((s, i) => (s.node === id ? i : -1)).filter((i) => i > 0);
-
-  const info = INFO[selected];
-  const node = N[selected];
 
   return (
     <div className="agent-graph">
@@ -213,13 +272,33 @@ export function AgentGraph() {
       </div>
 
       <div className="graph-detail">
-        <div className="card info">
-          <h3><code>{node.name}</code>{KIND_LABEL[node.kind] && <span className={`g-pill ${node.kind}`}>{KIND_LABEL[node.kind]}</span>}</h3>
-          <dl className="io">
-            <dt>Czyta ze stanu</dt><dd>{info.reads}</dd>
-            <dt>Wywołuje</dt><dd>{info.calls}</dd>
-            <dt>Zapisuje do stanu</dt><dd>{info.writes}</dd>
-          </dl>
+        {/* All node descriptions share one grid cell, so the card keeps the height of the longest. */}
+        <div className="card info node-stack">
+          {NODES.map((n) => {
+            const info = INFO[n.id];
+            return (
+              <div key={n.id} className={`node-info ${n.id === selected ? "active" : ""}`} aria-hidden={n.id !== selected}>
+                <h3><code>{n.name}</code>{KIND_LABEL[n.kind] && <span className={`g-pill ${n.kind}`}>{KIND_LABEL[n.kind]}</span>}</h3>
+                <p className="node-summary">{info.summary}</p>
+                {info.reads.length > 0 && (
+                  <div className="node-sec">
+                    <span className="node-label">Dostaje ze stanu</span>
+                    <div className="node-fields">{info.reads.map((f) => <code key={f}>{f}</code>)}</div>
+                  </div>
+                )}
+                <div className="node-sec">
+                  <span className="node-label">Co robi</span>
+                  <ul className="node-does">{info.does.map((d) => <li key={d}>{d}</li>)}</ul>
+                </div>
+                {info.writes.length > 0 && (
+                  <div className="node-sec">
+                    <span className="node-label">Zapisuje do stanu</span>
+                    <div className="node-fields">{info.writes.map((f) => <code key={f}>{f}</code>)}</div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
         <div className="card info step-card">
           <h3>Przebieg: {scenario.label.toLowerCase()}</h3>
