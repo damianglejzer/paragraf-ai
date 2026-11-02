@@ -1,8 +1,12 @@
-"""Generation evaluation and ablation.
+"""Generation evaluation: compare pipeline configurations on the same questions.
 
 Usage:
   uv run python -m paragraf.evaluation.run_generation --configs full_verified
-  uv run python -m paragraf.evaluation.run_generation --ablation --limit 40
+  uv run python -m paragraf.evaluation.run_generation --all --limit 20
+
+Cost: about 3 LLM calls per question and configuration (answer, citation judge, eval judge).
+"full_verified" reuses the pipeline runs of "full" and only drops wrong citations, so it adds
+an eval-judge call only when that changes the answer.
 
 Per answer we measure:
 - correctness vs. the reference answer (LLM judge: correct / partial / incorrect)
@@ -14,9 +18,11 @@ Per answer we measure:
 """
 
 import argparse
+import dataclasses
 import json
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -26,6 +32,7 @@ from paragraf.config import REPO_ROOT, get_settings
 from paragraf.db import repository as repo
 from paragraf.evaluation.dataset import EvalItem, load_dataset
 from paragraf.evaluation.metrics import article_of, mean, percentile
+from paragraf.evaluation.parallel import Connection, parallel_map, thread_connections
 from paragraf.pipeline import PipelineConfig, PipelineResult, drop_wrong, run_pipeline
 from paragraf.providers.base import LLM, ProviderUnavailable
 from paragraf.providers.factory import make_embedder, make_llm, make_reranker
@@ -45,16 +52,18 @@ class GenConfig:
     drop_wrong: bool
 
 
+# Kept to three to keep runs short and cheap; the retrieval eval covers the intermediate modes
+# (hybrid, reranker) at no LLM cost.
 CONFIGS: dict[str, GenConfig] = {
     c.name: c
     for c in [
         GenConfig("naive", "Naive RAG (fixed-size chunks, vectors only)", "naive", False),
-        GenConfig("hybrid", "Structural chunks + hybrid (ts_rank_cd + vectors)", "hybrid", False),
-        GenConfig("hybrid_rerank", "+ reranker", "hybrid_rerank", False),
-        GenConfig("full", "+ query rewriting", "full", False),
+        GenConfig("full", "Structural chunks + hybrid + reranker + rewrite", "full", False),
         GenConfig("full_verified", "+ citation verification", "full", True),
     ]
 }
+# Pipeline runs shared between configs with the same retrieval mode: (item id, mode) -> result
+RunCache = dict[tuple[str, str], PipelineResult]
 
 
 class EvalJudgement(BaseModel):
@@ -91,19 +100,23 @@ def evaluate_item(
     llm: LLM,
     judge: LLM,
     conn: Any,
+    runs: RunCache,
 ) -> dict[str, Any]:
     def lookup(pid: str) -> dict[str, Any] | None:
         return repo.get_provision(conn, pid)
 
     # Always verify (to measure citation accuracy); only the verified config drops wrong ones.
-    result = run_pipeline(
-        item.question,
-        retriever,
-        llm,
-        judge,
-        lookup,
-        PipelineConfig(mode=cfg.mode, verify=True, drop_wrong_citations=False),
-    )
+    key = (item.id, cfg.mode)
+    if key not in runs:
+        runs[key] = run_pipeline(
+            item.question,
+            retriever,
+            llm,
+            judge,
+            lookup,
+            PipelineConfig(mode=cfg.mode, verify=True, drop_wrong_citations=False),
+        )
+    result = dataclasses.replace(runs[key])
     checks = result.checks
     if cfg.drop_wrong:
         result.answer = drop_wrong(result.answer, checks)
@@ -182,49 +195,38 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def run_config(cfg: GenConfig, items: list[EvalItem], conn: Any) -> dict[str, Any]:
+def run_config(
+    cfg: GenConfig, items: list[EvalItem], conn: Callable[[], Connection], runs: RunCache
+) -> dict[str, Any]:
+    """`conn` returns the calling thread's own DB connection."""
     settings = get_settings()
-    llm = make_llm(settings)
-    retriever = Retriever(
-        conn, make_embedder(settings), make_reranker(settings), rewriter=QueryRewriter(llm)
-    )
-    judge = make_llm(settings, role="judge")
-    rows = []
-    for n, item in enumerate(items, start=1):
+    llm, judge = make_llm(settings), make_llm(settings, role="judge")
+    embedder, reranker = make_embedder(settings, retries=5), make_reranker(settings, retries=5)
+    rewriter = QueryRewriter(llm)
+
+    def one(item: EvalItem) -> dict[str, Any] | None:
+        retriever = Retriever(conn(), embedder, reranker, rewriter=rewriter)
         try:
             with track():
-                rows.append(evaluate_item(item, cfg, retriever, llm, judge, conn))
+                return evaluate_item(item, cfg, retriever, llm, judge, conn(), runs)
         except (ProviderUnavailable, ValueError) as exc:
             log.warning("%s %s failed: %s", cfg.name, item.id, exc)
-        if n % 10 == 0:
-            log.info("%s: %d/%d", cfg.name, n, len(items))
+            return None
+
+    rows = [r for r in parallel_map(one, items) if r is not None]
+    log.info("%s: %d/%d questions evaluated", cfg.name, len(rows), len(items))
     return {"config": cfg.name, "label": cfg.label, "summary": summarize(rows), "items": rows}
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--configs", default="full_verified")
-    parser.add_argument("--ablation", action="store_true", help="run all configs")
-    parser.add_argument("--limit", type=int, default=0)
-    parser.add_argument("--out", default="generation")
-    args = parser.parse_args()
-    items = load_dataset()
-    if args.limit:
-        # stratified subset: keep category proportions
-        by_cat: dict[str, list[EvalItem]] = {}
-        for i in items:
-            by_cat.setdefault(i.category, []).append(i)
-        share = args.limit / len(items)
-        items = [i for cat in by_cat.values() for i in cat[: max(1, round(len(cat) * share))]]
-    names = list(CONFIGS) if args.ablation else args.configs.split(",")
+def run(items: list[EvalItem], names: list[str]) -> dict[str, Any]:
     results = []
-    with repo.connect() as conn:
+    runs: RunCache = {}
+    with thread_connections() as conn:
         for name in names:
             log.info("config %s on %d questions", name, len(items))
-            res = run_config(CONFIGS[name], items, conn)
+            res = run_config(CONFIGS[name], items, conn, runs)
             log.info("%s: %s", name, json.dumps(res["summary"], ensure_ascii=False))
             results.append(res)
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     settings = get_settings()
     meta = {
         "llm": settings.llm_model,
@@ -234,7 +236,30 @@ def main() -> None:
         "n_questions": len(items),
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }
-    payload = {"meta": meta, "results": results}
+    return {"meta": meta, "results": results}
+
+
+def stratified(items: list[EvalItem], limit: int) -> list[EvalItem]:
+    """Subset of about `limit` items that keeps the category proportions."""
+    by_cat: dict[str, list[EvalItem]] = {}
+    for i in items:
+        by_cat.setdefault(i.category, []).append(i)
+    share = limit / len(items)
+    return [i for cat in by_cat.values() for i in cat[: max(1, round(len(cat) * share))]]
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--configs", default="full_verified")
+    parser.add_argument("--all", action="store_true", help="run all configs")
+    parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--out", default="generation")
+    args = parser.parse_args()
+    items = load_dataset()
+    if args.limit:
+        items = stratified(items, args.limit)
+    payload = run(items, list(CONFIGS) if args.all else args.configs.split(","))
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     (RESULTS_DIR / f"{args.out}.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=1, default=str)
     )

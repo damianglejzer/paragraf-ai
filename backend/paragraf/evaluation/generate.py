@@ -1,6 +1,7 @@
 """Generate the synthetic evaluation set (evals/dataset.jsonl) with automated checks.
 
 Usage: uv run python -m paragraf.evaluation.generate [--seed 7]
+Costs about 70 LLM calls (generation + automated check of each candidate).
 
 Every item is synthetic (verified=false). Quality control is automated: expected ids must
 exist, and a second, different model judges that the reference answer is supported by the
@@ -27,11 +28,12 @@ from paragraf.providers.factory import make_llm
 
 log = logging.getLogger("paragraf.generate")
 
-# Target counts per act for single-provision questions (sums to ~80 before filtering)
-REGULAR_PER_ACT = {"KP": 32, "UPK": 18, "KC": 12}
-MULTI_TOTAL = 25
-TRICKY_TOTAL = 20
-OOS_TOTAL = 20
+# Deliberately small (~32 items): the whole eval suite runs in minutes for a few cents.
+# Target counts per act for single-provision questions, roughly proportional to corpus size.
+REGULAR_PER_ACT = {"KP": 8, "UPK": 5, "KC": 3}
+MULTI_TOTAL = 5
+TRICKY_TOTAL = 5
+OOS_TOTAL = 6
 OVERSAMPLE = 1.3
 
 GEN_SYSTEM = (

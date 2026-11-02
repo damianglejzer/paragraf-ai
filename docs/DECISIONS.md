@@ -309,3 +309,51 @@ fused) already address.
 **Consequences.** Every request costs at most 3 LLM calls, with no extra round on refusals. A
 misleading rewrite can again produce a false refusal; `false_refusal_rate` in the generation eval
 tracks this.
+
+---
+
+## D16. A small, free-tier eval suite
+
+**Context.** The original plan (about 135 questions, five generation configs) meant well over a
+thousand LLM calls, more than a free-tier daily quota, and a run took hours.
+
+**Decision.** About 32 synthetic questions (16 regular, 5 multi-provision, 5 tricky, 6 out of
+scope) and three generation configs: naive RAG, the full pipeline, and the full pipeline with
+citation verification. The verified config reuses the full pipeline's runs and only drops wrong
+citations. Retrieval is evaluated for all six modes, which costs one query rewrite per question.
+One command (`paragraf.evaluation.run_all`) writes `evals/results/latest.json` for the UI.
+
+**Alternatives.** A larger set run over several days: more precise numbers, but slow to iterate
+on and impossible to re-run before a demo.
+
+**Consequences.** The full suite is about 270 LLM calls including dataset generation, and runs in
+under 20 minutes. With ~30 questions one question moves a percentage by about 3 points, so only
+large differences between configs are meaningful; the UI shows whole percents for that reason.
+
+---
+
+## D17. LLM calls move from the Gemini free tier to the OpenAI API (revises D2, D7, D11)
+
+**Context.** On 2026-11-02 the Gemini free tier answered in 2-13 s per call, and a client-side
+limit of 14 RPM serialized the eval suite: a ~200-call run was heading for over an hour, and one
+run had already stalled. The demo needs fast, predictable answers more than it needs a $0 bill.
+
+**Decision.** All LLM calls go through the OpenAI API (`LLM_PROVIDER=openai`):
+- `gpt-5.4-mini` with reasoning effort `none` for answers, the planner and query rewriting. This
+  step decides quality (verbatim quotes, Polish legal language, valid JSON), and reasoning off
+  keeps latency low.
+- `gpt-5.4-nano` with reasoning effort `low` for the citation judge: a narrow classification
+  task, so the cheapest model with a little reasoning is enough.
+
+Structured output uses `response_format: json_schema` in non-strict mode, because the Pydantic
+schemas use defaults and bounds that strict mode rejects; callers validate the JSON anyway.
+Embeddings and the reranker stay on Jina (free token pool): changing embeddings would mean
+re-indexing, and Jina was not the bottleneck. The Gemini provider remains available via `.env`.
+
+**Alternatives.** Staying on Gemini with more parallelism: the per-minute limit caps it.
+`gpt-5.4-mini` for the judge too: about 4x the price for a yes/no-style task.
+
+**Consequences.** LLM calls are now billed: roughly $0.005 per chat question and a few cents per
+eval run at list prices. The per-IP rate limit and daily request budget now protect real money,
+not only quotas. The eval dataset generated earlier with Gemini is kept (`source:
+"synthetic:gemini"`); all eval answers are regenerated with the new models.

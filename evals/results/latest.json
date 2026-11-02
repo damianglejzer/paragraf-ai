@@ -1,0 +1,401 @@
+{
+ "meta": {
+  "embedding_model": "jina-embeddings-v3",
+  "reranker": "jina-reranker-v2-base-multilingual",
+  "n_questions": 32,
+  "generated_at": "2026-11-02T11:47:43",
+  "llm": "gpt-5.4-mini",
+  "judge": "gpt-5.4-nano",
+  "embedding": "jina-embeddings-v3",
+  "duration_s": 125
+ },
+ "dataset": {
+  "n": 32,
+  "by_category": {
+   "regular": 16,
+   "multi": 5,
+   "tricky": 5,
+   "out_of_scope": 6
+  },
+  "verified": 0
+ },
+ "retrieval": [
+  {
+   "mode": "naive",
+   "n": 26,
+   "overall": {
+    "recall@1": 0.6538,
+    "recall@3": 0.8269,
+    "recall@5": 0.9038,
+    "recall@10": 0.9038,
+    "mrr": 0.7673,
+    "recall@5_unit": 0.8462
+   },
+   "by_category": {
+    "multi": {
+     "recall@1": 0.8,
+     "recall@3": 0.9,
+     "recall@5": 0.9,
+     "recall@10": 0.9,
+     "mrr": 1.0,
+     "recall@5_unit": 0.8
+    },
+    "regular": {
+     "recall@1": 0.625,
+     "recall@3": 0.8125,
+     "recall@5": 0.875,
+     "recall@10": 0.875,
+     "mrr": 0.7135,
+     "recall@5_unit": 0.8125
+    },
+    "tricky": {
+     "recall@1": 0.6,
+     "recall@3": 0.8,
+     "recall@5": 1.0,
+     "recall@10": 1.0,
+     "mrr": 0.7067,
+     "recall@5_unit": 1.0
+    }
+   },
+   "latency_ms": {
+    "p50": 12.9,
+    "p95": 42.3
+   }
+  },
+  {
+   "mode": "vector",
+   "n": 26,
+   "overall": {
+    "recall@1": 0.6154,
+    "recall@3": 0.7692,
+    "recall@5": 0.8269,
+    "recall@10": 0.9038,
+    "mrr": 0.7452,
+    "recall@5_unit": 0.75
+   },
+   "by_category": {
+    "multi": {
+     "recall@1": 0.2,
+     "recall@3": 0.4,
+     "recall@5": 0.7,
+     "recall@10": 0.9,
+     "mrr": 0.6167,
+     "recall@5_unit": 0.5
+    },
+    "regular": {
+     "recall@1": 0.6875,
+     "recall@3": 0.8125,
+     "recall@5": 0.8125,
+     "recall@10": 0.875,
+     "mrr": 0.737,
+     "recall@5_unit": 0.8125
+    },
+    "tricky": {
+     "recall@1": 0.8,
+     "recall@3": 1.0,
+     "recall@5": 1.0,
+     "recall@10": 1.0,
+     "mrr": 0.9,
+     "recall@5_unit": 0.8
+    }
+   },
+   "latency_ms": {
+    "p50": 15.3,
+    "p95": 41.5
+   }
+  },
+  {
+   "mode": "fulltext",
+   "n": 26,
+   "overall": {
+    "recall@1": 0.0769,
+    "recall@3": 0.2692,
+    "recall@5": 0.4808,
+    "recall@10": 0.5,
+    "mrr": 0.2282,
+    "recall@5_unit": 0.3077
+   },
+   "by_category": {
+    "multi": {
+     "recall@1": 0.0,
+     "recall@3": 0.2,
+     "recall@5": 0.5,
+     "recall@10": 0.6,
+     "mrr": 0.25,
+     "recall@5_unit": 0.2
+    },
+    "regular": {
+     "recall@1": 0.125,
+     "recall@3": 0.25,
+     "recall@5": 0.4375,
+     "recall@10": 0.4375,
+     "mrr": 0.2177,
+     "recall@5_unit": 0.375
+    },
+    "tricky": {
+     "recall@1": 0.0,
+     "recall@3": 0.4,
+     "recall@5": 0.6,
+     "recall@10": 0.6,
+     "mrr": 0.24,
+     "recall@5_unit": 0.2
+    }
+   },
+   "latency_ms": {
+    "p50": 98.1,
+    "p95": 3835.2
+   }
+  },
+  {
+   "mode": "hybrid",
+   "n": 26,
+   "overall": {
+    "recall@1": 0.4231,
+    "recall@3": 0.6346,
+    "recall@5": 0.7115,
+    "recall@10": 0.9423,
+    "mrr": 0.634,
+    "recall@5_unit": 0.5
+   },
+   "by_category": {
+    "multi": {
+     "recall@1": 0.4,
+     "recall@3": 0.7,
+     "recall@5": 0.7,
+     "recall@10": 0.9,
+     "mrr": 0.9,
+     "recall@5_unit": 0.4
+    },
+    "regular": {
+     "recall@1": 0.375,
+     "recall@3": 0.5625,
+     "recall@5": 0.625,
+     "recall@10": 0.9375,
+     "mrr": 0.5178,
+     "recall@5_unit": 0.5
+    },
+    "tricky": {
+     "recall@1": 0.6,
+     "recall@3": 0.8,
+     "recall@5": 1.0,
+     "recall@10": 1.0,
+     "mrr": 0.74,
+     "recall@5_unit": 0.6
+    }
+   },
+   "latency_ms": {
+    "p50": 139.5,
+    "p95": 252.3
+   }
+  },
+  {
+   "mode": "hybrid_rerank",
+   "n": 26,
+   "overall": {
+    "recall@1": 0.4038,
+    "recall@3": 0.6538,
+    "recall@5": 0.7885,
+    "recall@10": 0.8846,
+    "mrr": 0.599,
+    "recall@5_unit": 0.6731
+   },
+   "by_category": {
+    "multi": {
+     "recall@1": 0.3,
+     "recall@3": 0.6,
+     "recall@5": 0.7,
+     "recall@10": 0.8,
+     "mrr": 0.65,
+     "recall@5_unit": 0.5
+    },
+    "regular": {
+     "recall@1": 0.5625,
+     "recall@3": 0.75,
+     "recall@5": 0.8125,
+     "recall@10": 0.875,
+     "mrr": 0.6687,
+     "recall@5_unit": 0.8125
+    },
+    "tricky": {
+     "recall@1": 0.0,
+     "recall@3": 0.4,
+     "recall@5": 0.8,
+     "recall@10": 1.0,
+     "mrr": 0.325,
+     "recall@5_unit": 0.4
+    }
+   },
+   "latency_ms": {
+    "p50": 139.4,
+    "p95": 209.2
+   }
+  },
+  {
+   "mode": "full",
+   "n": 26,
+   "overall": {
+    "recall@1": 0.5192,
+    "recall@3": 0.75,
+    "recall@5": 0.8654,
+    "recall@10": 0.9038,
+    "mrr": 0.6901,
+    "recall@5_unit": 0.7308
+   },
+   "by_category": {
+    "multi": {
+     "recall@1": 0.3,
+     "recall@3": 0.7,
+     "recall@5": 0.7,
+     "recall@10": 0.7,
+     "mrr": 0.6667,
+     "recall@5_unit": 0.6
+    },
+    "regular": {
+     "recall@1": 0.625,
+     "recall@3": 0.8125,
+     "recall@5": 0.9375,
+     "recall@10": 0.9375,
+     "mrr": 0.7333,
+     "recall@5_unit": 0.875
+    },
+    "tricky": {
+     "recall@1": 0.4,
+     "recall@3": 0.6,
+     "recall@5": 0.8,
+     "recall@10": 1.0,
+     "mrr": 0.575,
+     "recall@5_unit": 0.4
+    }
+   },
+   "latency_ms": {
+    "p50": 1768.8,
+    "p95": 2257.1
+   }
+  }
+ ],
+ "generation": [
+  {
+   "config": "naive",
+   "label": "Naive RAG (fixed-size chunks, vectors only)",
+   "summary": {
+    "n": 32,
+    "correctness": 0.4615,
+    "faithfulness": 0.3333,
+    "citation_accuracy": 0.1528,
+    "citation_wrong_rate": 0.7028,
+    "citation_recall": 0.5577,
+    "refusal_accuracy": 0.875,
+    "oos_refusal_rate": 1.0,
+    "false_refusal_rate": 0.1538,
+    "latency_ms_p50": 3252,
+    "latency_ms_p95": 4803,
+    "tokens_per_query": 4568,
+    "cost_usd_per_query": 0.003357,
+    "by_category": {
+     "multi": {
+      "n": 5,
+      "correctness": 0.3,
+      "refusal_accuracy": 0.8
+     },
+     "out_of_scope": {
+      "n": 6,
+      "correctness": null,
+      "refusal_accuracy": 1.0
+     },
+     "regular": {
+      "n": 16,
+      "correctness": 0.5,
+      "refusal_accuracy": 0.8125
+     },
+     "tricky": {
+      "n": 5,
+      "correctness": 0.5,
+      "refusal_accuracy": 1.0
+     }
+    }
+   }
+  },
+  {
+   "config": "full",
+   "label": "Structural chunks + hybrid + reranker + rewrite",
+   "summary": {
+    "n": 32,
+    "correctness": 0.7692,
+    "faithfulness": 0.8403,
+    "citation_accuracy": 0.7939,
+    "citation_wrong_rate": 0.0345,
+    "citation_recall": 0.8462,
+    "refusal_accuracy": 0.9375,
+    "oos_refusal_rate": 1.0,
+    "false_refusal_rate": 0.0769,
+    "latency_ms_p50": 3601,
+    "latency_ms_p95": 27137,
+    "tokens_per_query": 9625,
+    "cost_usd_per_query": 0.003848,
+    "by_category": {
+     "multi": {
+      "n": 5,
+      "correctness": 0.7,
+      "refusal_accuracy": 0.8
+     },
+     "out_of_scope": {
+      "n": 6,
+      "correctness": null,
+      "refusal_accuracy": 1.0
+     },
+     "regular": {
+      "n": 16,
+      "correctness": 0.8438,
+      "refusal_accuracy": 0.9375
+     },
+     "tricky": {
+      "n": 5,
+      "correctness": 0.6,
+      "refusal_accuracy": 1.0
+     }
+    }
+   }
+  },
+  {
+   "config": "full_verified",
+   "label": "+ citation verification",
+   "summary": {
+    "n": 32,
+    "correctness": 0.7692,
+    "faithfulness": 0.8403,
+    "citation_accuracy": 0.8223,
+    "citation_wrong_rate": 0.0,
+    "citation_recall": 0.8462,
+    "refusal_accuracy": 0.9375,
+    "oos_refusal_rate": 1.0,
+    "false_refusal_rate": 0.0769,
+    "latency_ms_p50": 3601,
+    "latency_ms_p95": 27137,
+    "tokens_per_query": 9625,
+    "cost_usd_per_query": 0.003848,
+    "by_category": {
+     "multi": {
+      "n": 5,
+      "correctness": 0.7,
+      "refusal_accuracy": 0.8
+     },
+     "out_of_scope": {
+      "n": 6,
+      "correctness": null,
+      "refusal_accuracy": 1.0
+     },
+     "regular": {
+      "n": 16,
+      "correctness": 0.8438,
+      "refusal_accuracy": 0.9375
+     },
+     "tricky": {
+      "n": 5,
+      "correctness": 0.6,
+      "refusal_accuracy": 1.0
+     }
+    }
+   }
+  }
+ ]
+}
