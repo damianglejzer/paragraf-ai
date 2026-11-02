@@ -12,7 +12,8 @@ if [ "$(docker compose exec -T db psql -U paragraf -Atc "SELECT to_regclass('pro
   uv run python -m paragraf.indexing.index
 fi
 
-uv run uvicorn paragraf.api.main:app --port 8010 &
+# --no-proxy-headers: the app reads X-Forwarded-For itself (TRUSTED_PROXY_HOPS)
+uv run uvicorn paragraf.api.main:app --port 8010 --no-proxy-headers &
 BACKEND=$!
 trap 'kill $BACKEND 2>/dev/null' EXIT
 (cd frontend && [ -d node_modules ] || npm install --no-audit --no-fund)

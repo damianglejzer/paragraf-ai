@@ -380,3 +380,44 @@ whole corpus for no quality gain; the extra Labour Code cost about 2% of the fre
 pipeline found the expected article in the top 5 for 96% of questions, answered 85% correctly and
 showed no wrong citations. With ~30 questions results vary between runs (the plain-RAG baseline
 moved between 33% and 52% correctness across two runs), so only large differences are meaningful.
+
+---
+
+## D19. Security hardening for a public demo
+
+**Context.** The demo will be linked from a CV and open to anyone, and LLM calls are now billed
+(D17). A review before deployment found: the per-IP limit trusted `X-Forwarded-For` blindly, so
+any script could rotate a fake IP and bypass it; the daily budget was checked before a request and
+counted after it, so a burst could overshoot it; nothing capped requests per IP per day, so one
+visitor could use up the whole day's budget; nothing capped concurrent agent runs (each holds a DB
+connection and a worker thread for seconds); the question had no length limit at parse time;
+`/api/health` published today's usage and cost; FastAPI's `/docs` were public; three Python
+dependencies had known CVEs.
+
+**Decision.**
+- Client IP: `X-Forwarded-For` is read only as far as our own proxies wrote it
+  (`TRUSTED_PROXY_HOPS`, 0 = ignore the header, 1 on Render). uvicorn runs with
+  `--no-proxy-headers`: by default it trusts the header from 127.0.0.1 and rewrites the client
+  address before the app sees it, which let local requests pick any IP.
+- Quotas: per IP per minute (in memory), per IP per day and a global daily budget (Postgres).
+  The DB quotas reserve a request with one `INSERT ... ON CONFLICT ... WHERE requests < limit`, so
+  concurrent requests cannot overshoot. IPs are stored only as a day-salted SHA-256, kept 2 days.
+- At most `MAX_CONCURRENT_REQUESTS` agent runs; a slot is freed when the agent thread finishes,
+  not when the client disconnects, so closing tabs cannot stack up work.
+- Request guards: 64 KB body limit, `Content-Length` required on POST, question ≤ 2000 chars at
+  parse time (500 in the handler), ≤ 8 history turns.
+- Security headers on the API (nosniff, `DENY` framing, no referrer, `default-src 'none'`) and a
+  CSP for the frontend in `frontend/vercel.json` (scripts only from self, no framing).
+- `/api/health` returns only status and corpus size; API docs are off unless `ENABLE_API_DOCS`.
+- Dependencies upgraded (certifi, pyasn1, setuptools); `pip-audit` and `npm audit --omit=dev`
+  are clean.
+
+**Alternatives.** A CAPTCHA or sign-in: stronger against abuse, but a recruiter clicking a CV link
+should get an answer immediately. Redis for the limits: unnecessary for one instance.
+
+**Consequences.** Worst case a determined abuser costs the daily budget (about $1.5) and then only
+cached answers work until midnight UTC; the OpenAI dashboard spending cap bounds the month.
+Remaining accepted risks: the per-minute limiter resets on restart (the DB quotas do not);
+conversation history is client-supplied, so a user can inject text into their own prompt, which
+affects only their own answer; the MCP server is a local tool and must not be exposed publicly;
+the `esbuild` advisory affects only the local Vite dev server, not the built site.

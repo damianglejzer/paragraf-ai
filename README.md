@@ -23,8 +23,9 @@ point of the project is retrieval quality and citation verification.
   *wrong*. Wrong citations are removed from the answer. The UI shows the status of every citation.
 - **MCP server** (official Python SDK). It exposes `search_law`, `get_article`,
   and `follow_reference`.
-- **Demo protection.** Per-IP rate limit, a daily request budget with a cache-only fallback, an
-  answer cache and a query length limit.
+- **Demo protection.** Per-IP limits per minute and per day, a global daily budget with a
+  cache-only fallback, a cap on concurrent agent runs, an answer cache, request size limits,
+  security headers and a proxy-aware client IP that cannot be spoofed (docs/DECISIONS.md, D19).
 
 ## Run locally
 
@@ -55,7 +56,7 @@ docker compose up -d db
 uv sync
 uv run python -m paragraf.ingest            # ELI API -> parse -> Postgres
 uv run python -m paragraf.indexing.index    # lemmas + embeddings
-uv run uvicorn paragraf.api.main:app --port 8010
+uv run uvicorn paragraf.api.main:app --port 8010 --no-proxy-headers
 cd frontend && npm install && npm run dev
 ```
 
@@ -76,6 +77,37 @@ results appear on the "Jak to działa" page.
 uv run python -m paragraf.mcp_server.server          # stdio (Claude Desktop / Claude Code)
 uv run python -m paragraf.mcp_server.server --http   # streamable HTTP on :8765
 ```
+
+## Deployment
+
+The backend is a single FastAPI process; the frontend is a static Vite build.
+
+**Database.** Postgres 16 with pgvector (e.g. Neon's free tier). Point `DATABASE_URL` at it and,
+once, from your machine:
+
+```bash
+uv run python -m paragraf.ingest            # tables + the full Labour Code and other acts
+uv run python -m paragraf.indexing.index    # lemmas + embeddings (about 2 minutes)
+```
+
+**Backend** (e.g. a Render web service, repository root):
+- Build: `uv sync --frozen --no-dev`
+- Start: `uv run uvicorn paragraf.api.main:app --host 0.0.0.0 --port $PORT --workers 1 --no-proxy-headers`
+  (one worker: the per-minute limiter and the concurrency cap live in memory;
+  `--no-proxy-headers`: the app reads `X-Forwarded-For` itself, see `TRUSTED_PROXY_HOPS`)
+- Environment: everything from `.env.example`, in particular `OPENAI_API_KEY`, `JINA_API_KEY`,
+  `LLM_PROVIDER=openai`, `EMBEDDING_PROVIDER=jina`, `RERANKER_PROVIDER=jina`,
+  `CORS_ORIGINS=https://<frontend-domain>` and `TRUSTED_PROXY_HOPS=1` (one proxy in front).
+- Check: `curl https://<backend-domain>/api/health` returns `{"status": "ok", "chunks": 1378}`.
+- Pre-answer the example questions so they work instantly and for free:
+  `uv run python -m paragraf.api.warm_cache --url https://<backend-domain>`
+
+**Frontend** (e.g. Vercel): root directory `frontend`, build `npm run build`, output `dist`,
+environment `VITE_API_URL=https://<backend-domain>`. `frontend/vercel.json` adds a Content
+Security Policy and the other security headers.
+
+**Spending cap.** Set a monthly budget limit in the OpenAI dashboard. The app's limits keep costs
+around a dollar a day at worst, but the provider-side cap is the one nothing can route around.
 
 ## Stack
 

@@ -35,10 +35,18 @@ class Settings(BaseSettings):
     langfuse_secret_key: str = ""
     langfuse_host: str = "https://cloud.langfuse.com"
 
-    rate_limit_per_minute: int = 6
-    daily_request_budget: int = 300
+    # Demo protection (docs/DECISIONS.md, D19). Answers served from the cache are free and
+    # count against none of these limits.
+    rate_limit_per_minute: int = 6  # new questions per client IP per minute
+    rate_limit_per_day: int = 40  # new questions per client IP per UTC day
+    daily_request_budget: int = 300  # new questions per UTC day for everyone together
+    max_concurrent_requests: int = 4  # agent runs in flight; more get a "busy" reply
     max_query_chars: int = 500
     cors_origins: str = "http://localhost:5173"
+    # Number of reverse proxies in front of the app that append to X-Forwarded-For (1 on
+    # Render/Railway/Fly). 0 ignores the header, so clients cannot spoof their IP with it.
+    trusted_proxy_hops: int = 0
+    enable_api_docs: bool = False  # /docs and /openapi.json; keep off in production
 
     @property
     def raw_dir(self) -> Path:

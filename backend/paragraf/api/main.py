@@ -1,18 +1,20 @@
 """FastAPI backend: streaming chat (SSE), provision preview, eval results, demo protection.
 
-Run locally: uv run uvicorn paragraf.api.main:app --reload --port 8010
+Run locally: uv run uvicorn paragraf.api.main:app --reload --port 8010 --no-proxy-headers
+(the app resolves the client IP itself; see protection.client_ip and TRUSTED_PROXY_HOPS)
 """
 
 import asyncio
 import json
 import logging
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 from pydantic import BaseModel, Field
@@ -67,6 +69,10 @@ BUDGET_MESSAGE = (
     "Dzienny budżet zapytań demo został wykorzystany. Do północy (UTC) działają tylko "
     "przykładowe pytania z zapisanymi odpowiedziami."
 )
+IP_QUOTA_MESSAGE = (
+    "Wykorzystano dzienny limit pytań z tego adresu. Przykładowe pytania nadal działają."
+)
+MAX_BODY_BYTES = 64 * 1024  # a question plus 8 history turns fits easily
 
 
 class Turn(BaseModel):
@@ -75,7 +81,8 @@ class Turn(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    question: str = Field(min_length=1)
+    # Hard cap at parse time; the friendlier MAX_QUERY_CHARS check runs in the handler.
+    question: str = Field(min_length=1, max_length=2000)
     history: list[Turn] = Field(default_factory=list, max_length=8)
 
 
@@ -93,6 +100,8 @@ class Services:
         self.llm = make_llm(settings)
         self.judge = make_llm(settings, role="judge")
         self.limiter = protection.RateLimiter(settings.rate_limit_per_minute)
+        # Each agent run holds a DB connection and a worker thread for several seconds.
+        self.slots = asyncio.Semaphore(settings.max_concurrent_requests)
 
 
 services: Services | None = None
@@ -116,20 +125,49 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     services.pool.close()
 
 
-app = FastAPI(title="Paragraf AI", version="0.1.0", lifespan=lifespan)
+docs = settings.enable_api_docs
+app = FastAPI(
+    title="Paragraf AI",
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url="/docs" if docs else None,
+    redoc_url=None,
+    openapi_url="/openapi.json" if docs else None,
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
     allow_methods=["GET", "POST"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type"],
 )
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+}
+
+
+@app.middleware("http")
+async def guard(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+    """Reject oversized bodies before they are read, and add security headers (JSON API only)."""
+    length = request.headers.get("content-length")
+    if length is not None and (not length.isdigit() or int(length) > MAX_BODY_BYTES):
+        response: Response = JSONResponse({"detail": "Request too large"}, status_code=413)
+    elif request.method == "POST" and length is None:
+        response = JSONResponse({"detail": "Content-Length required"}, status_code=411)
+    else:
+        response = await call_next(request)
+    response.headers.update(SECURITY_HEADERS)
+    return response
 
 
 def client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    return protection.client_ip(
+        request.headers.get("x-forwarded-for"),
+        request.client.host if request.client else None,
+        settings.trusted_proxy_hops,
+    )
 
 
 def format_history(turns: list[Turn]) -> str:
@@ -242,8 +280,13 @@ def run_agent_sync(
 async def chat(req: ChatRequest, request: Request) -> EventSourceResponse:
     question = req.question.strip()
 
+    ip = client_ip(request)
+
     async def events() -> AsyncIterator[dict[str, str]]:
         s = svc()
+        if not question:
+            yield sse("error", {"code": "too_long", "message": "Wpisz pytanie."})
+            return
         if len(question) > settings.max_query_chars:
             yield sse(
                 "error",
@@ -255,15 +298,12 @@ async def chat(req: ChatRequest, request: Request) -> EventSourceResponse:
             return
         with s.pool.connection() as conn:
             cached = None if req.history else protection.get_cached(conn, question)
-            exhausted = protection.budget_exhausted(conn, settings.daily_request_budget)
         if cached is not None:
             async for event in replay(cached):
                 yield event
             return
-        if exhausted:
-            yield sse("error", {"code": "budget", "message": BUDGET_MESSAGE})
-            return
-        if (wait := s.limiter.check(client_ip(request))) > 0:
+        # Cheapest checks first; quotas are only consumed by a request that will actually run.
+        if (wait := s.limiter.check(ip)) > 0:
             yield sse(
                 "error",
                 {
@@ -272,12 +312,33 @@ async def chat(req: ChatRequest, request: Request) -> EventSourceResponse:
                 },
             )
             return
+        if s.slots.locked():
+            yield sse("error", {"code": "busy", "message": BUSY_MESSAGE})
+            return
+        await s.slots.acquire()
+        try:
+            with s.pool.connection() as conn:
+                allowed = protection.try_consume_ip_quota(conn, ip, settings.rate_limit_per_day)
+                if not allowed:
+                    yield sse("error", {"code": "rate_limited", "message": IP_QUOTA_MESSAGE})
+                elif not protection.try_consume_budget(conn, settings.daily_request_budget):
+                    allowed = False
+                    yield sse("error", {"code": "budget", "message": BUDGET_MESSAGE})
+            if not allowed:
+                s.slots.release()
+                return
+        except BaseException:
+            s.slots.release()
+            raise
 
         queue: asyncio.Queue[tuple[str, Any]] = asyncio.Queue()
         loop = asyncio.get_running_loop()
-        task = asyncio.create_task(
-            asyncio.to_thread(run_agent_sync, question, format_history(req.history), queue, loop)
-        )
+        history = format_history(req.history)
+        work = asyncio.to_thread(run_agent_sync, question, history, queue, loop)
+        task = asyncio.create_task(work)
+        # Free the slot when the agent thread finishes, not when the client goes away: a closed
+        # tab must not let a new request start while the old one is still calling the models.
+        task.add_done_callback(lambda _: s.slots.release())
         while True:
             kind, data = await queue.get()
             if kind == "step":
@@ -298,6 +359,8 @@ async def chat(req: ChatRequest, request: Request) -> EventSourceResponse:
 
 @app.get("/api/provisions/{provision_id}")
 def provision(provision_id: str) -> dict[str, Any]:
+    if len(provision_id) > 120:
+        raise HTTPException(404, "Provision not found")
     s = svc()
     with s.pool.connection() as conn:
         toolkit = LawToolkit(conn, Retriever(conn, s.embedder))
@@ -341,19 +404,7 @@ def eval_results() -> dict[str, Any]:
 @app.get("/api/health")
 def health() -> dict[str, Any]:
     s = svc()
+    # Public: no usage, budget or cost figures (they would tell an abuser how much is left).
     with s.pool.connection() as conn:
         n = conn.execute("SELECT count(*) AS n FROM provisions WHERE is_chunk").fetchone()
-        today = protection.usage_today(conn)
-    return {
-        "status": "ok",
-        "chunks": n["n"] if n else 0,
-        "usage_today": today,
-        "daily_budget": settings.daily_request_budget,
-        "langfuse": observability.enabled(),
-        "models": {
-            "llm": settings.llm_model,
-            "judge": settings.judge_model,
-            "embedding": settings.embedding_model,
-            "reranker": settings.reranker_model,
-        },
-    }
+    return {"status": "ok", "chunks": n["n"] if n else 0}

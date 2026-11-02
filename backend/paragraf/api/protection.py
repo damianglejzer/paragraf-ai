@@ -1,6 +1,7 @@
-"""Demo cost protection: per-IP rate limit, daily budget with a hard switch, answer cache."""
+"""Demo cost protection: per-IP limits, a global daily budget, a concurrency cap, answer cache."""
 
 import datetime as dt
+import hashlib
 import json
 import re
 import threading
@@ -65,27 +66,63 @@ def put_cached(conn: psycopg.Connection[Any], question: str, payload: dict[str, 
     conn.commit()
 
 
-def budget_exhausted(conn: psycopg.Connection[Any], limit: int) -> bool:
+def _today() -> dt.date:
+    return dt.datetime.now(dt.UTC).date()
+
+
+def try_consume_budget(conn: psycopg.Connection[Any], limit: int) -> bool:
+    """Reserve one request from today's global budget; False when it is used up.
+
+    Check and increment are one statement, so concurrent requests cannot overshoot the limit.
+    """
     row = conn.execute(
-        "SELECT requests FROM usage_daily WHERE day = %s", (dt.datetime.now(dt.UTC).date(),)
+        """INSERT INTO usage_daily (day, requests) VALUES (%s, 1)
+           ON CONFLICT (day) DO UPDATE SET requests = usage_daily.requests + 1
+             WHERE usage_daily.requests < %s
+           RETURNING requests""",
+        (_today(), limit),
     ).fetchone()
-    return row is not None and int(row["requests"]) >= limit
+    conn.commit()
+    return row is not None and limit > 0
+
+
+def ip_hash(ip: str, day: dt.date) -> str:
+    """Daily-salted hash: enough to count requests per client, without storing the IP."""
+    return hashlib.sha256(f"{day.isoformat()}|{ip}".encode()).hexdigest()[:32]
+
+
+def try_consume_ip_quota(conn: psycopg.Connection[Any], ip: str, limit: int) -> bool:
+    """Reserve one of today's requests for this client IP; False when it is used up."""
+    day = _today()
+    conn.execute("DELETE FROM ip_usage_daily WHERE day < %s", (day - dt.timedelta(days=1),))
+    row = conn.execute(
+        """INSERT INTO ip_usage_daily (day, ip_hash, requests) VALUES (%s, %s, 1)
+           ON CONFLICT (day, ip_hash) DO UPDATE SET requests = ip_usage_daily.requests + 1
+             WHERE ip_usage_daily.requests < %s
+           RETURNING requests""",
+        (day, ip_hash(ip, day), limit),
+    ).fetchone()
+    conn.commit()
+    return row is not None and limit > 0
 
 
 def record_usage(conn: psycopg.Connection[Any], tokens: int, cost_usd: float) -> None:
+    """Add a finished request's tokens and cost (the request itself was counted up front)."""
     conn.execute(
-        """INSERT INTO usage_daily (day, requests, tokens, cost_usd) VALUES (%s, 1, %s, %s)
-           ON CONFLICT (day) DO UPDATE SET requests = usage_daily.requests + 1,
-             tokens = usage_daily.tokens + EXCLUDED.tokens,
+        """INSERT INTO usage_daily (day, requests, tokens, cost_usd) VALUES (%s, 0, %s, %s)
+           ON CONFLICT (day) DO UPDATE SET tokens = usage_daily.tokens + EXCLUDED.tokens,
              cost_usd = usage_daily.cost_usd + EXCLUDED.cost_usd""",
-        (dt.datetime.now(dt.UTC).date(), tokens, cost_usd),
+        (_today(), tokens, cost_usd),
     )
     conn.commit()
 
 
-def usage_today(conn: psycopg.Connection[Any]) -> dict[str, Any]:
-    row = conn.execute(
-        "SELECT requests, tokens, cost_usd FROM usage_daily WHERE day = %s",
-        (dt.datetime.now(dt.UTC).date(),),
-    ).fetchone()
-    return dict(row) if row else {"requests": 0, "tokens": 0, "cost_usd": 0.0}
+def client_ip(forwarded_for: str | None, peer: str | None, trusted_hops: int) -> str:
+    """The client's IP. X-Forwarded-For is trusted only as far as our own proxies wrote it:
+    each trusted proxy appends the address it saw, so the client is `trusted_hops` entries from
+    the right. Anything to the left of that was sent by the client and can be forged."""
+    if trusted_hops > 0 and forwarded_for:
+        hops = [h.strip() for h in forwarded_for.split(",") if h.strip()]
+        if len(hops) >= trusted_hops:
+            return hops[-trusted_hops]
+    return peer or "unknown"

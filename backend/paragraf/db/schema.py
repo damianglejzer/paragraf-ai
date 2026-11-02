@@ -60,6 +60,12 @@ CREATE TABLE IF NOT EXISTS usage_daily (
     tokens    bigint NOT NULL DEFAULT 0,
     cost_usd  double precision NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS ip_usage_daily (
+    day       date NOT NULL,
+    ip_hash   text NOT NULL,
+    requests  integer NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, ip_hash)
+);
 
 -- Baseline for the ablation study: fixed-size chunks, vectors only
 CREATE TABLE IF NOT EXISTS naive_chunks (
