@@ -126,7 +126,7 @@ class ParagrafAgent:
             "Czy możesz doprecyzować pytanie?"
             if plan.action == "clarify"
             else "To pytanie wykracza poza przepisy, które znam (prawo pracy, prawa konsumenta, "
-            "najem, przedawnienie i terminy)."
+            "najem i przedawnienie)."
         )
         status: Literal["clarify", "refuse"] = "clarify" if plan.action == "clarify" else "refuse"
         return {"answer": Answer(status=status, answer=plan.message or default), "checks": []}

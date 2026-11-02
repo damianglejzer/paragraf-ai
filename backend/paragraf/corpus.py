@@ -34,7 +34,6 @@ TOPICS = [
     "reklamacja towaru niezgodnego z umową",
     "najem mieszkania",
     "przedawnienie roszczeń",
-    "obliczanie terminów",
 ]
 
 
