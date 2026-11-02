@@ -110,7 +110,7 @@ export default function App() {
               <div className="thread">
                 {messages.length === 0 && (
                   <div className="hero">
-                    <h1>Pytaj o przepisy.<br /><em>Każdy cytat sprawdzamy.</em></h1>
+                    <h1>Odpowiedzi tylko z ustaw.<br /><em>Bez zmyślonych przepisów.</em></h1>
                     <p>
                       Agent AI odpowiada na pytania o prawo pracy, prawa konsumenta i najem — zawsze wskazując
                       konkretny artykuł, paragraf lub ustęp. Osobny krok automatycznie weryfikuje, czy cytowany
