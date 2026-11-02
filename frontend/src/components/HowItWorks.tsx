@@ -47,7 +47,7 @@ function Diagram() {
         </g>
       ))}
       {box(720, 238, 250, "FastAPI (SSE) → React UI", "kroki na żywo · statusy cytatów")}
-      <text x="10" y="315" fontSize="11" fill="var(--text-3)">Obserwowalność: Langfuse (opcjonalnie) · Ochrona kosztów: rate limit per IP, dzienny budżet, cache odpowiedzi</text>
+      <text x="10" y="315" fontSize="11" fill="var(--text-3)">Ochrona kosztów: rate limit per IP, dzienny budżet, cache odpowiedzi</text>
     </svg>
   );
 }
