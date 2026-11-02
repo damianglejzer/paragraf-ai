@@ -79,9 +79,11 @@ export function HowItWorks() {
         <div>
           <h1>Jak to działa</h1>
           <p className="lead">
-            Paragraf AI to agent RAG nad polskimi ustawami. Najważniejsze nie jest samo czatowanie, tylko to,
-            że <strong>każdy cytat jest automatycznie sprawdzany</strong>, a jakość systemu jest zmierzona
-            na zbiorze testowym. Ablacja pokazuje, ile daje każdy element pipeline'u.
+            Paragraf AI to agent RAG nad polskimi ustawami. Odpowiada na podstawie oficjalnych tekstów
+            jednolitych <strong>Kodeksu pracy, Kodeksu cywilnego i ustawy o prawach konsumenta</strong>,
+            a <strong>każdy cytat jest automatycznie weryfikowany</strong>: czy przepis istnieje, czy cytowany
+            fragment naprawdę w nim jest i czy popiera odpowiedź. Wyniki na zbiorze testowym pokazują, ile
+            daje każdy element pipeline'u.
           </p>
         </div>
 
