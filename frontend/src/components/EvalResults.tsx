@@ -121,8 +121,9 @@ export function EvalResults({ report }: { report: EvalReport | null | undefined 
         <p className="lead" style={{ marginTop: 0 }}>
           System odpowiedział na {ds?.n ?? final.n} pytań testowych
           {ds && <> ({Object.entries(ds.by_category).map(([c, n]) => `${n} ${CATEGORY[c] ?? c}`).join(", ")})</>}.
-          Dla porównania te same pytania dostał zwykły RAG: tekst pocięty na fragmenty, bez struktury ustawy i bez
-          weryfikacji cytatów.
+          Dla porównania te same pytania dostał zwykły RAG: tekst pocięty na fragmenty po 1000 znaków bez względu na
+          strukturę ustawy, wyszukiwanie tylko po podobieństwie wektorów (bez wyszukiwania po słowach i rerankera)
+          i bez weryfikacji cytatów.
         </p>
       </div>
 
