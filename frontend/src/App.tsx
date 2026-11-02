@@ -110,7 +110,7 @@ export default function App() {
               <div className="thread">
                 {messages.length === 0 && (
                   <div className="hero">
-                    <h1>Odpowiedzi tylko z ustaw.<br /><em>Bez zmyślonych przepisów.</em></h1>
+                    <h1>Odpowiedzi tylko z ustaw.<br /><em>Bez halucynacji.</em></h1>
                     <p>
                       Agent AI odpowiada na pytania o prawo pracy, prawa konsumenta i najem — zawsze wskazując
                       konkretny artykuł, paragraf lub ustęp. Osobny krok automatycznie weryfikuje, czy cytowany
@@ -156,7 +156,7 @@ export default function App() {
                 {input.length > MAX_CHARS * 0.7 && <span className="count">{input.length}/{MAX_CHARS}</span>}
                 <button className="send" type="submit" disabled={busy || !input.trim()}><Send size={15} /> Zapytaj</button>
               </form>
-              <div className="composer-hint">Demo na darmowych limitach API · odpowiedzi generuje AI i mogą zawierać błędy · to nie jest porada prawna</div>
+              <div className="composer-hint">Odpowiedzi generuje AI i mogą zawierać błędy · to nie jest porada prawna</div>
             </div>
           </div>
         )}

@@ -1,20 +1,8 @@
 import { useEffect, useState } from "react";
 import { fetchEval } from "../api";
 import { AgentGraph } from "./AgentGraph";
+import { EvalResults, type EvalReport } from "./EvalResults";
 import { Database, Shield, Zap } from "./Icons";
-
-interface RetrievalRow { mode: string; label?: string; overall: Record<string, number>; latency_ms: { p50: number; p95: number } }
-interface GenSummary { [k: string]: number | null | undefined | object }
-interface GenRow { config: string; label: string; summary: GenSummary }
-interface Report {
-  meta: Record<string, string | number>;
-  dataset?: { n: number; by_category: Record<string, number>; verified: number };
-  retrieval?: RetrievalRow[];
-  generation?: GenRow[];
-}
-
-const pct = (v: unknown) => (typeof v === "number" && !Number.isNaN(v) ? `${(v * 100).toFixed(1)}%` : "—");
-const num = (v: unknown, d = 3) => (typeof v === "number" && !Number.isNaN(v) ? v.toFixed(d) : "—");
 
 function Diagram() {
   const box = (x: number, y: number, w: number, title: string, sub: string, accent = false) => (
@@ -65,13 +53,8 @@ function Diagram() {
 }
 
 export function HowItWorks() {
-  const [report, setReport] = useState<Report | null | undefined>(undefined);
-  useEffect(() => { fetchEval().then((r) => setReport(r as Report | null)).catch(() => setReport(null)); }, []);
-
-  const gen = report?.generation ?? [];
-  const final = gen[gen.length - 1]?.summary;
-  const retrievalByMode = Object.fromEntries((report?.retrieval ?? []).map((r) => [r.mode, r]));
-  const modeFor: Record<string, string> = { naive: "naive", hybrid: "hybrid", hybrid_rerank: "hybrid_rerank", full: "full", full_verified: "full" };
+  const [report, setReport] = useState<EvalReport | null | undefined>(undefined);
+  useEffect(() => { fetchEval().then((r) => setReport(r as EvalReport | null)).catch(() => setReport(null)); }, []);
 
   return (
     <div className="scroll">
@@ -80,17 +63,16 @@ export function HowItWorks() {
           <h1>Jak to działa</h1>
           <p className="lead">
             Paragraf AI to agent RAG nad polskimi ustawami. Odpowiada na podstawie oficjalnych tekstów
-            jednolitych <strong>Kodeksu pracy, Kodeksu cywilnego i ustawy o prawach konsumenta</strong>,
-            a <strong>każdy cytat jest automatycznie weryfikowany</strong>: czy przepis istnieje, czy cytowany
-            fragment naprawdę w nim jest i czy popiera odpowiedź. Wyniki na zbiorze testowym pokazują, ile
-            daje każdy element pipeline'u.
+            jednolitych <strong>Kodeksu pracy</strong>, <strong>Kodeksu cywilnego</strong> i <strong>ustawy o prawach konsumenta</strong>,
+            a każdy cytat jest automatycznie weryfikowany: czy przepis istnieje, czy cytowany
+            fragment naprawdę w nim jest i czy popiera on odpowiedź przygotowaną przez agenta.
           </p>
         </div>
 
         <div className="card diagram"><Diagram /></div>
 
         <div className="grid-3">
-          <div className="card info"><h3><Database size={16} /> Chunking strukturalny</h3><p>Jednostką jest artykuł / § / ustęp z pełną ścieżką (np. „KP, Dział VII, Rozdział I, art. 154 § 1”). Parser zgadza się w 100% z endpointem <code>/struct</code> API ELI.</p></div>
+          <div className="card info"><h3><Database size={16} /> Chunking strukturalny</h3><p>Jednostką jest artykuł / § / ustęp z pełną ścieżką (np. „KP, Dział VII, Rozdział I, art. 154 § 1”).</p></div>
           <div className="card info"><h3><Zap size={16} /> Retrieval hybrydowy</h3><p>Wyszukiwanie po lematach z rankingiem <code>ts_rank_cd</code> (spaCy, Postgres <code>simple</code>) + wektory (pgvector), fuzja RRF, przepisanie pytania na język ustaw i reranker cross-encoder.</p></div>
           <div className="card info"><h3><Shield size={16} /> Weryfikacja cytatów</h3><p>Dla każdego cytatu: czy przepis istnieje w bazie, czy cytowany fragment naprawdę w nim jest (fuzzy match) i czy popiera twierdzenie — ocenia osobny sędzia LLM, który widzi tylko treść przepisu i twierdzenie.</p></div>
         </div>
@@ -104,79 +86,7 @@ export function HowItWorks() {
         </div>
         <AgentGraph />
 
-        {report === undefined && <div className="note"><span className="spinner" /> Wczytuję wyniki ewaluacji…</div>}
-        {report === null && <div className="card info"><p>Wyniki ewaluacji nie zostały jeszcze wygenerowane (<code>evals/results/latest.json</code>).</p></div>}
-
-        {report && final && (
-          <div>
-            <h2>Wyniki (pełny system)</h2>
-            <div className="kpis">
-              <div className="card kpi"><div className="v">{pct(final.correctness)}</div><div className="k">poprawność odpowiedzi</div></div>
-              <div className="card kpi"><div className="v">{pct(final.citation_accuracy)}</div><div className="k">zweryfikowanych cytatów</div></div>
-              <div className="card kpi"><div className="v">{pct(final.faithfulness)}</div><div className="k">faithfulness</div></div>
-              <div className="card kpi"><div className="v">{pct(final.refusal_accuracy)}</div><div className="k">trafność odmów</div></div>
-              <div className="card kpi"><div className="v">{((final.latency_ms_p50 as number) / 1000).toFixed(1)} s</div><div className="k">latencja p50 (p95: {((final.latency_ms_p95 as number) / 1000).toFixed(1)} s)</div></div>
-            </div>
-          </div>
-        )}
-
-        {report && gen.length > 0 && (
-          <div>
-            <h2>Ablacja: co daje każdy element</h2>
-            <div className="card table-wrap">
-              <table className="results">
-                <thead>
-                  <tr><th>Konfiguracja</th><th>Recall@5</th><th>MRR</th><th>Poprawność</th><th>Faithfulness</th><th>Cytaty OK</th><th>Błędne cytaty</th><th>Odmowy</th><th>p50</th></tr>
-                </thead>
-                <tbody>
-                  {gen.map((g, i) => {
-                    const r = retrievalByMode[modeFor[g.config]];
-                    const s = g.summary;
-                    return (
-                      <tr key={g.config} className={i === gen.length - 1 ? "best" : ""}>
-                        <td>{g.label}</td>
-                        <td>{pct(r?.overall["recall@5"])}</td>
-                        <td>{num(r?.overall.mrr)}</td>
-                        <td>{pct(s.correctness)}<span className="bar" style={{ width: `${Number(s.correctness ?? 0) * 40}px` }} /></td>
-                        <td>{pct(s.faithfulness)}</td>
-                        <td>{pct(s.citation_accuracy)}</td>
-                        <td>{pct(s.citation_wrong_rate)}</td>
-                        <td>{pct(s.refusal_accuracy)}</td>
-                        <td>{((s.latency_ms_p50 as number) / 1000).toFixed(1)} s</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <p className="note">
-              Zbiór: {String(report.meta.n_questions ?? "?")} pytań (syntetyczne, generowane przez LLM z automatyczną kontrolą jakości; kategorie: zwykłe,
-              wymagające kilku przepisów, poza zakresem, podchwytliwe). Recall i MRR liczone na poziomie artykułu.
-              Modele: {String(report.meta.llm)} (odpowiedzi), {String(report.meta.judge)} (sędzia), {String(report.meta.embedding)}, {String(report.meta.reranker)}.
-              Wygenerowano {String(report.meta.generated_at)}.
-            </p>
-          </div>
-        )}
-
-        {report?.retrieval && (
-          <div>
-            <h2>Retrieval</h2>
-            <div className="card table-wrap">
-              <table className="results">
-                <thead><tr><th>Tryb</th><th>R@1</th><th>R@3</th><th>R@5</th><th>R@10</th><th>MRR</th><th>p50</th></tr></thead>
-                <tbody>
-                  {report.retrieval.map((r) => (
-                    <tr key={r.mode}>
-                      <td>{r.label ?? r.mode}</td>
-                      <td>{pct(r.overall["recall@1"])}</td><td>{pct(r.overall["recall@3"])}</td><td>{pct(r.overall["recall@5"])}</td><td>{pct(r.overall["recall@10"])}</td>
-                      <td>{num(r.overall.mrr)}</td><td>{Math.round(r.latency_ms.p50)} ms</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        <EvalResults report={report} />
       </div>
     </div>
   );
