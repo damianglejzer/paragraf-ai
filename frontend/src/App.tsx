@@ -8,11 +8,11 @@ import type { AssistantMessage, Citation, Example, Message } from "./types";
 
 const MAX_CHARS = 500;
 const FALLBACK_EXAMPLES: Example[] = [
+  { label: "Zwolnienie na L4", question: "Czy mogę zostać zwolniony, kiedy jestem na L4?" },
   { label: "Urlop", question: "Ile dni urlopu wypoczynkowego przysługuje mi po 12 latach pracy?" },
-  { label: "Wypowiedzenie", question: "Jaki mam okres wypowiedzenia, jeśli pracuję w firmie od 4 lat?" },
-  { label: "Urlop ojcowski", question: "Ile trwa urlop ojcowski?" },
-  { label: "Praca zdalna", question: "Czy pracodawca może odmówić mi pracy zdalnej, jeśli wychowuję dziecko poniżej 4 lat?" },
-  { label: "BHP", question: "Czy mogę odmówić pracy, jeśli warunki zagrażają mojemu zdrowiu?" },
+  { label: "Ciąża", question: "Czy pracodawca może mnie zwolnić, kiedy jestem w ciąży? A co, jeśli mam umowę na czas określony albo na okres próbny?" },
+  { label: "Wypowiedzenie", question: "Jak długi jest mój okres wypowiedzenia, jeśli pracuję w firmie od 4 lat?" },
+  { label: "Zaległy urlop", question: "Co się stanie z moim niewykorzystanym urlopem z zeszłego roku? Czy przepada, jeśli nie wykorzystam go do końca września?" },
 ];
 const uid = () => Math.random().toString(36).slice(2);
 
