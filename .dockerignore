@@ -5,12 +5,14 @@
 !.env.example
 
 .git
+.github
+.claude
 .venv
 **/__pycache__
 **/*.pyc
-.mypy_cache
-.ruff_cache
-.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.pytest_cache
 
 data
 frontend

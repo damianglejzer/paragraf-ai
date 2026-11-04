@@ -17,12 +17,13 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /app
 
 # Dependencies first, in their own layer: rebuilt only when pyproject.toml or uv.lock change,
-# not on every code edit. --frozen installs exactly the versions pinned in uv.lock.
-COPY pyproject.toml uv.lock README.md ./
+# not on every code or README edit. --frozen installs exactly the versions pinned in uv.lock.
+COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 # Then the code, and the project itself (editable: it points at /app/backend, which keeps
-# the repo layout that config.REPO_ROOT relies on).
+# the repo layout that config.REPO_ROOT relies on). README.md is package metadata.
+COPY README.md ./
 COPY backend/paragraf ./backend/paragraf
 RUN uv sync --frozen --no-dev
 
