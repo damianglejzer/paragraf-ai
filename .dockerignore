@@ -1,0 +1,25 @@
+# Only what the backend image needs goes into the build context.
+# Never send secrets or local state to the Docker daemon.
+.env
+.env.*
+!.env.example
+
+.git
+.venv
+**/__pycache__
+**/*.pyc
+.mypy_cache
+.ruff_cache
+.pytest_cache
+
+data
+frontend
+docs
+scripts
+backend/tests
+
+# evals: only the summary served by /api/eval
+evals/*
+!evals/results
+evals/results/*
+!evals/results/latest.json

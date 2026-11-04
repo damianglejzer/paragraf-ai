@@ -90,7 +90,17 @@ uv run python -m paragraf.ingest            # tables + the full Labour Code and 
 uv run python -m paragraf.indexing.index    # lemmas + embeddings (about 2 minutes)
 ```
 
-**Backend** (e.g. a Render web service, repository root):
+**Backend** (e.g. a Render web service, repository root). The repository has a `Dockerfile`:
+choose the Docker runtime and Render builds the image itself (no build or start command
+needed; it listens on `$PORT`). Locally:
+
+```bash
+docker build -t paragraf-api .
+docker run --rm --network host -e PORT=8020 -v "$PWD/.env:/app/.env:ro" paragraf-api
+```
+
+(Mounting `.env` keeps its inline comments working; `--env-file` would pass them as part of the
+values.) Without Docker, on a native Python runtime:
 - Build: `uv sync --frozen --no-dev`
 - Start: `uv run uvicorn paragraf.api.main:app --host 0.0.0.0 --port $PORT --workers 1 --no-proxy-headers`
   (one worker: the per-minute limiter and the concurrency cap live in memory;
