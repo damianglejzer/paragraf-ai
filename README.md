@@ -71,6 +71,20 @@ The suite is deliberately small: `run_all` makes roughly 200 LLM calls (a few ce
 mini/nano models) and runs 4 questions in parallel. LLM responses are cached on disk, so a re-run only pays for unfinished calls. The
 results appear on the "Jak to działa" page.
 
+### Portable bundle (whole app in Docker)
+
+Database with the indexed corpus, backend and frontend as three containers, packed into one file
+you can copy to another machine (e.g. on a USB drive):
+
+```bash
+./scripts/bundle.sh            # needs the local db running; writes bundle/ (~375 MB)
+```
+
+On the other machine (Docker and internet access needed): `docker load -i
+paragraf-images.tar.gz`, put a `.env` with your keys next to `docker-compose.yml`, then
+`docker compose up -d` and open http://localhost:8080. Details are in `bundle/README.txt`.
+No secrets go into the images; the database starts from a dump of your local one.
+
 ### MCP server
 
 ```bash

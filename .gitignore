@@ -14,3 +14,7 @@ frontend/playwright-report/
 .DS_Store
 *.tsbuildinfo
 .claude/settings.local.json*
+
+# Portable bundle (scripts/bundle.sh): generated, contains cached answers
+docker/db/*.sql.gz
+bundle/

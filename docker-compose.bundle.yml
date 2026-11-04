@@ -1,0 +1,51 @@
+# The whole app in three containers, for running on any machine with Docker.
+#
+#   docker compose -f docker-compose.bundle.yml up        → http://localhost:8080
+#
+# Build (with internet) or load the images from the bundle first: see scripts/bundle.sh.
+# Secrets stay out of the images: the backend reads them from ./.env at run time.
+
+services:
+  db:
+    image: paragraf-db:latest
+    build: ./docker/db
+    environment:
+      POSTGRES_USER: paragraf
+      POSTGRES_PASSWORD: paragraf
+      POSTGRES_DB: paragraf
+    volumes:
+      - paragraf-bundle-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paragraf -d paragraf"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    # No published port: only the backend talks to the database.
+
+  api:
+    image: paragraf-api:latest
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Keys and settings; mounted (not env_file) so inline comments in .env keep working.
+      - ./.env:/app/.env:ro
+    environment:
+      # These override .env: inside this network the database host is "db".
+      DATABASE_URL: postgresql://paragraf:paragraf@db:5432/paragraf
+      PORT: "8000"
+      TRUSTED_PROXY_HOPS: "1"  # nginx in front appends the client address
+    # No published port: the browser reaches it through nginx under /api.
+
+  web:
+    image: paragraf-web:latest
+    build: ./frontend
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:80"
+
+volumes:
+  paragraf-bundle-data:

@@ -21,3 +21,5 @@ scripts
 backend/tests
 
 evals
+bundle
+docker
