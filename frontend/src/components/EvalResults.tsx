@@ -51,9 +51,9 @@ function TestRow({ n, t }: { n: number; t: Test }) {
   );
 }
 
-export function EvalResults({ report }: { report: EvalReport | null | undefined }) {
-  if (report === undefined) return <div className="note"><span className="spinner" /> Wczytuję wyniki testów…</div>;
-  if (report === null || !report.generation?.length) {
+/** `report` is bundled at build time from data/eval-report.json (written by evaluation.run_all). */
+export function EvalResults({ report }: { report: EvalReport }) {
+  if (!report.generation?.length) {
     return (
       <div className="card info">
         <h3>Brak wyników testów</h3>

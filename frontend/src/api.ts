@@ -75,7 +75,3 @@ export async function fetchExamples(): Promise<{ examples: Example[]; topics: st
   return res.json();
 }
 
-export async function fetchEval(): Promise<unknown | null> {
-  const res = await fetch(`${BASE}/api/eval`);
-  return res.ok ? res.json() : null;
-}

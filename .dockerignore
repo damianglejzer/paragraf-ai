@@ -18,8 +18,4 @@ docs
 scripts
 backend/tests
 
-# evals: only the summary served by /api/eval
-evals/*
-!evals/results
-evals/results/*
-!evals/results/latest.json
+evals

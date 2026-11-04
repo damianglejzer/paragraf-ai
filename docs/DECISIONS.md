@@ -321,7 +321,8 @@ thousand LLM calls, more than a free-tier daily quota, and a run took hours.
 scope) and three generation configs: naive RAG, the full pipeline, and the full pipeline with
 citation verification. The verified config reuses the full pipeline's runs and only drops wrong
 citations. Retrieval is evaluated for all six modes, which costs one query rewrite per question.
-One command (`paragraf.evaluation.run_all`) writes `evals/results/latest.json` for the UI.
+One command (`paragraf.evaluation.run_all`) writes the UI's report (now
+`frontend/src/data/eval-report.json`, bundled into the frontend at build time).
 
 **Alternatives.** A larger set run over several days: more precise numbers, but slow to iterate
 on and impossible to re-run before a demo.

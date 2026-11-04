@@ -1,11 +1,13 @@
-"""Run the whole eval suite and write evals/results/latest.json for the frontend.
+"""Run the whole eval suite and write the frontend's report (frontend/src/data/eval-report.json).
+
+The frontend bundles the report at build time, so the results page needs no backend call.
 
 Usage: uv run python -m paragraf.evaluation.run_all [--limit N]
 
-Sized for free-tier quotas: on the ~32-question dataset this is roughly 200 LLM calls
-(retrieval: one rewrite per question; generation: three configs, see run_generation) and
-takes about 15 minutes at the client-side rate limit. LLM responses are cached on disk, so a
-re-run after a failure only pays for the calls that did not finish.
+Deliberately small: on the ~33-question dataset this is roughly 200 LLM calls (retrieval: one
+rewrite per question; generation: three configs, see run_generation), a few minutes and a few
+cents. LLM responses are cached on disk, so a re-run after a failure only pays for the calls
+that did not finish. After a run, rebuild/redeploy the frontend to publish the new report.
 """
 
 import argparse
@@ -16,11 +18,12 @@ import time
 from collections import Counter
 from typing import Any
 
+from paragraf.config import REPO_ROOT
 from paragraf.evaluation import run_generation, run_retrieval
 from paragraf.evaluation.dataset import load_dataset
 
 log = logging.getLogger("paragraf.eval")
-LATEST = run_retrieval.RESULTS_DIR / "latest.json"
+REPORT = REPO_ROOT / "frontend" / "src" / "data" / "eval-report.json"
 
 
 def without_nan(value: Any) -> Any:
@@ -73,8 +76,8 @@ def main() -> None:
     (out / "generation.json").write_text(
         json.dumps(generation, ensure_ascii=False, indent=1, default=str)
     )
-    LATEST.write_text(json.dumps(report, ensure_ascii=False, indent=1, default=str))
-    log.info("wrote %s in %d s", LATEST, report["meta"]["duration_s"])
+    REPORT.write_text(json.dumps(report, ensure_ascii=False, indent=1, default=str) + "\n")
+    log.info("wrote %s in %d s", REPORT, report["meta"]["duration_s"])
 
 
 if __name__ == "__main__":

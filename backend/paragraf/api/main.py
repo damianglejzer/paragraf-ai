@@ -1,4 +1,4 @@
-"""FastAPI backend: streaming chat (SSE), provision preview, eval results, demo protection.
+"""FastAPI backend: streaming chat (SSE), provision preview, examples, demo protection.
 
 Run locally: uv run uvicorn paragraf.api.main:app --reload --port 8010 --no-proxy-headers
 (the app resolves the client IP itself; see protection.client_ip and TRUSTED_PROXY_HOPS)
@@ -24,7 +24,7 @@ from paragraf import observability
 from paragraf.agent.graph import ParagrafAgent
 from paragraf.agent.tools import LawToolkit
 from paragraf.api import protection
-from paragraf.config import REPO_ROOT, get_settings
+from paragraf.config import get_settings
 from paragraf.corpus import TOPICS
 from paragraf.db import repository as repo
 from paragraf.db.schema import schema_sql
@@ -390,15 +390,6 @@ def provision(provision_id: str) -> dict[str, Any]:
 @app.get("/api/examples")
 def examples() -> dict[str, Any]:
     return {"examples": EXAMPLES, "topics": TOPICS}
-
-
-@app.get("/api/eval")
-def eval_results() -> dict[str, Any]:
-    path = REPO_ROOT / "evals" / "results" / "latest.json"
-    if not path.exists():
-        raise HTTPException(404, "No eval results yet")
-    data: dict[str, Any] = json.loads(path.read_text())
-    return data
 
 
 @app.get("/api/health")

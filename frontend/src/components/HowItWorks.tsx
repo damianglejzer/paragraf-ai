@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { fetchEval } from "../api";
+import evalReport from "../data/eval-report.json";
 import { AgentGraph } from "./AgentGraph";
 import { EvalResults, type EvalReport } from "./EvalResults";
 import { Database, Shield, Zap } from "./Icons";
@@ -53,9 +52,6 @@ function Diagram() {
 }
 
 export function HowItWorks() {
-  const [report, setReport] = useState<EvalReport | null | undefined>(undefined);
-  useEffect(() => { fetchEval().then((r) => setReport(r as EvalReport | null)).catch(() => setReport(null)); }, []);
-
   return (
     <div className="scroll">
       <div className="page">
@@ -86,7 +82,7 @@ export function HowItWorks() {
         </div>
         <AgentGraph />
 
-        <EvalResults report={report} />
+        <EvalResults report={evalReport as EvalReport} />
       </div>
     </div>
   );

@@ -35,7 +35,6 @@ WORKDIR /app
 
 COPY --from=builder /app/.venv ./.venv
 COPY --from=builder /app/backend ./backend
-COPY evals/results/latest.json ./evals/results/latest.json
 RUN mkdir -p data/cache && chown -R app:app data
 
 ENV PATH="/app/.venv/bin:$PATH" \

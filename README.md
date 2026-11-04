@@ -64,7 +64,7 @@ cd frontend && npm install && npm run dev
 
 ```bash
 uv run python -m paragraf.evaluation.generate   # ~32 synthetic questions, ~70 LLM calls
-uv run python -m paragraf.evaluation.run_all    # retrieval + generation, writes evals/results/latest.json
+uv run python -m paragraf.evaluation.run_all    # retrieval + generation, writes frontend/src/data/eval-report.json
 ```
 
 The suite is deliberately small: `run_all` makes roughly 200 LLM calls (a few cents with the
