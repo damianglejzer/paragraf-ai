@@ -1,4 +1,4 @@
-# Paragraf AI
+# Asystent Prawa Pracy
 
 **An AI assistant for Polish labour law that proves its answers.** It answers from the full Labour
 Code (Kodeks pracy), cites the exact article, § or paragraph, and then automatically checks every
@@ -19,7 +19,7 @@ measuring both.
 Evaluated on 33 questions, comparing the full system with a naive RAG baseline (fixed-size chunks,
 vector search only):
 
-| Metric | Naive RAG | Paragraf AI |
+| Metric | Naive RAG | Asystent Prawa Pracy |
 |---|---:|---:|
 | Correct answers | 52% | **85%** |
 | Citations verified as correct | 12% | **87%** |

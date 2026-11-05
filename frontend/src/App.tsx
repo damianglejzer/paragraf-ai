@@ -106,7 +106,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark">§</div>
-          <div>Paragraf AI<small>asystent prawa z weryfikacją cytatów</small></div>
+          <div>Asystent Prawa Pracy<small>odpowiedzi ze sprawdzonymi cytatami</small></div>
         </div>
         <nav className="tabs">
           <button className={`tab ${tab === "chat" ? "active" : ""}`} onClick={() => setTab("chat")}>Asystent</button>

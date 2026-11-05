@@ -26,7 +26,7 @@ echo "4/4 Writing the run files..."
 grep -v '^\s*build:' docker-compose.bundle.yml > bundle/docker-compose.yml
 cp .env.example bundle/.env.example
 cat > bundle/README.txt <<'EOF'
-Paragraf AI - portable bundle
+Asystent Prawa Pracy - portable bundle
 
 Requirements: Docker with Docker Compose, internet access (OpenAI and Jina APIs).
 

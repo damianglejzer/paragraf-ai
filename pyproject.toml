@@ -1,7 +1,7 @@
 [project]
 name = "paragraf"
 version = "0.1.0"
-description = "Paragraf AI - Polish law assistant with verified citations"
+description = "Asystent Prawa Pracy - Polish labour law assistant with verified citations"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [

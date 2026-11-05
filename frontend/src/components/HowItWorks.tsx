@@ -58,7 +58,7 @@ export function HowItWorks() {
         <div>
           <h1>Jak to działa</h1>
           <p className="lead">
-            Paragraf AI to agent RAG do prawa pracy. Odpowiada na podstawie oficjalnego tekstu jednolitego
+            Asystent Prawa Pracy to agent RAG do prawa pracy. Odpowiada na podstawie oficjalnego tekstu jednolitego
             <strong> całego Kodeksu pracy</strong> (plus wybranych przepisów Kodeksu cywilnego i ustawy o prawach konsumenta),
             a każdy cytat jest automatycznie weryfikowany: czy przepis istnieje, czy cytowany
             fragment naprawdę w nim jest i czy popiera on odpowiedź przygotowaną przez agenta.

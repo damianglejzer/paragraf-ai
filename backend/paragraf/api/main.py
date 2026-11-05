@@ -133,7 +133,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 docs = settings.enable_api_docs
 app = FastAPI(
-    title="Paragraf AI",
+    title="Asystent Prawa Pracy",
     version="0.1.0",
     lifespan=lifespan,
     docs_url="/docs" if docs else None,

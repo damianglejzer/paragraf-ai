@@ -1,4 +1,4 @@
-# Paragraf AI
+# Asystent Prawa Pracy
 
 AI assistant for Polish labour law (the full Kodeks pracy, plus a few topics from KC and the
 consumer rights act). An agent answers questions about statutes and always cites a

@@ -18,6 +18,6 @@ BACKEND=$!
 trap 'kill $BACKEND 2>/dev/null' EXIT
 (cd frontend && [ -d node_modules ] || npm install --no-audit --no-fund)
 echo
-echo "  Paragraf AI → http://localhost:5173"
+echo "  Asystent Prawa Pracy → http://localhost:5173"
 echo
 cd frontend && npx vite --port 5173

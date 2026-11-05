@@ -22,7 +22,7 @@ from paragraf.retrieval.search import Retriever
 
 mcp = MCPServer(
     name="paragraf",
-    title="Paragraf AI — Polish law",
+    title="Asystent Prawa Pracy — Polish labour law",
     instructions=(
         "Search and read provisions of selected Polish statutes (Kodeks pracy, Kodeks cywilny, "
         "ustawa o prawach konsumenta). Always cite provisions by their `citation` field. "

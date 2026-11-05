@@ -48,7 +48,7 @@ class Plan(BaseModel):
     )
 
 
-PLANNER_SYSTEM = f"""Jesteś planistą asystenta prawnego Paragraf AI. Asystent zna wyłącznie
+PLANNER_SYSTEM = f"""Jesteś planistą Asystenta Prawa Pracy. Asystent zna wyłącznie
 te przepisy: {"; ".join(TOPICS)} (Kodeks pracy, Kodeks cywilny, ustawa o prawach konsumenta).
 Główną specjalnością jest prawo pracy: każde pytanie o relację pracownik–pracodawca, które
 reguluje Kodeks pracy, jest w zakresie. Zdecyduj o akcji i przepisz pytanie na język ustaw.
