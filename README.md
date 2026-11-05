@@ -128,7 +128,8 @@ values.) Without Docker, on a native Python runtime:
 
 **Frontend** (e.g. Vercel): root directory `frontend`, build `npm run build`, output `dist`,
 environment `VITE_API_URL=https://<backend-domain>`. `frontend/vercel.json` adds a Content
-Security Policy and the other security headers.
+Security Policy and the other security headers. On page load the frontend calls `/api/health`,
+so a backend and database that went to sleep on a free tier start waking before the first question.
 
 **Spending cap.** Set a monthly budget limit in the OpenAI dashboard. The app's limits keep costs
 around a dollar a day at worst, but the provider-side cap is the one nothing can route around.

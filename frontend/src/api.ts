@@ -63,6 +63,16 @@ function dispatch(raw: string, handlers: ChatHandlers) {
   else if (event === "error") handlers.onError(parsed);
 }
 
+/**
+ * Fire-and-forget wake-up: free hosting puts the backend and database to sleep when idle.
+ * /api/health touches both, so they start booting before the visitor asks anything.
+ */
+export function wakeBackend(): void {
+  fetch(`${BASE}/api/health`).catch(() => {
+    // Nothing to show: if the backend is really down, the chat reports it on the first question.
+  });
+}
+
 export async function fetchProvision(id: string): Promise<ProvisionResponse> {
   const res = await fetch(`${BASE}/api/provisions/${encodeURIComponent(id)}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
