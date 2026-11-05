@@ -7,9 +7,9 @@ provision exists and actually supports the claim. The main differentiator is rig
 and citation verification, not the chat itself.
 
 Portfolio project for junior AI/ML Engineer roles. Priorities: low running cost (cheap OpenAI
-mini/nano models for the LLM, free tiers elsewhere), the demo is smooth, fast and polished. Legal accuracy matters, but it is secondary to a working,
-impressive demo. Data comes from the official Sejm ELI API (https://api.sejm.gov.pl/eli), using
-the newest consolidated text (tekst jednolity) that has an HTML version. No PDF parsing.
+mini/nano models for the LLM, free tiers elsewhere), a smooth, fast and polished demo, and answers
+grounded in the cited statutes, where the verifier flags or removes what it cannot confirm. Data
+comes from the official Sejm ELI API (https://api.sejm.gov.pl/eli), using the newest consolidated text (tekst jednolity) that has an HTML version. No PDF parsing.
 
 ## Layout
 - `backend/paragraf/` - Python package (eli client, parsing, db, indexing, retrieval,
