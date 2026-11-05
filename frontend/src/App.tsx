@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchExamples, streamChat } from "./api";
+import { fetchExamples, streamChat, wakeBackend } from "./api";
 import { AnswerView } from "./components/AnswerView";
 import { HowItWorks } from "./components/HowItWorks";
 import { Alert, Check, Moon, Send, Sun } from "./components/Icons";
@@ -14,7 +14,12 @@ const FALLBACK_EXAMPLES: Example[] = [
   { label: "Wypowiedzenie", question: "Jak długi jest mój okres wypowiedzenia, jeśli pracuję w firmie od 4 lat?" },
   { label: "Zaległy urlop", question: "Co się stanie z moim niewykorzystanym urlopem z zeszłego roku? Czy przepada, jeśli nie wykorzystam go do końca września?" },
 ];
+/** An awake backend answers well within this, so the notice never flashes on a normal visit. */
+const WAKE_NOTICE_DELAY_MS = 1500;
 const uid = () => Math.random().toString(36).slice(2);
+
+// Started at module load, so it begins with the page and runs once despite StrictMode.
+const backendReady = wakeBackend();
 
 function getTheme(): "light" | "dark" {
   try {
@@ -33,6 +38,7 @@ export default function App() {
   const [examples, setExamples] = useState<Example[]>(FALLBACK_EXAMPLES);
   const [topics, setTopics] = useState<string[]>([]);
   const [panel, setPanel] = useState<{ id: string; citation?: Citation } | null>(null);
+  const [waking, setWaking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -42,7 +48,19 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    fetchExamples().then((d) => { setExamples(d.examples); setTopics(d.topics); }).catch(() => undefined);
+    const timer = setTimeout(() => setWaking(true), WAKE_NOTICE_DELAY_MS);
+    backendReady.then(() => {
+      clearTimeout(timer);
+      setWaking(false);
+    });
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    backendReady
+      .then(fetchExamples)
+      .then((d) => { setExamples(d.examples); setTopics(d.topics); })
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -142,6 +160,12 @@ export default function App() {
               </div>
             </div>
             <div className="composer-wrap">
+              {waking && (
+                <div className="wake-notice" role="status">
+                  <span className="wake-spinner" aria-hidden="true" />
+                  Uruchamiam serwer, to może potrwać około minuty
+                </div>
+              )}
               <form className="card composer" onSubmit={(e) => { e.preventDefault(); ask(input, messages); }}>
                 <textarea
                   ref={inputRef}

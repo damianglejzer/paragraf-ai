@@ -130,6 +130,7 @@ values.) Without Docker, on a native Python runtime:
 environment `VITE_API_URL=https://<backend-domain>`. `frontend/vercel.json` adds a Content
 Security Policy and the other security headers. On page load the frontend calls `/api/health`,
 so a backend and database that went to sleep on a free tier start waking before the first question.
+If the backend takes longer than 1.5 s to answer, a notice above the input says the server is starting.
 
 **Spending cap.** Set a monthly budget limit in the OpenAI dashboard. The app's limits keep costs
 around a dollar a day at worst, but the provider-side cap is the one nothing can route around.

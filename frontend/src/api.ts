@@ -63,14 +63,26 @@ function dispatch(raw: string, handlers: ChatHandlers) {
   else if (event === "error") handlers.onError(parsed);
 }
 
+const WAKE_GIVE_UP_MS = 120_000;
+const WAKE_ATTEMPT_TIMEOUT_MS = 30_000;
+const WAKE_RETRY_MS = 3_000;
+
 /**
- * Fire-and-forget wake-up: free hosting puts the backend and database to sleep when idle.
- * /api/health touches both, so they start booting before the visitor asks anything.
+ * Free hosting puts the backend and database to sleep when idle. /api/health touches both, so
+ * they start booting before the visitor asks anything. Resolves once the backend answers, or
+ * after WAKE_GIVE_UP_MS: if it is really down, the chat reports that on the first question.
  */
-export function wakeBackend(): void {
-  fetch(`${BASE}/api/health`).catch(() => {
-    // Nothing to show: if the backend is really down, the chat reports it on the first question.
-  });
+export async function wakeBackend(): Promise<void> {
+  const deadline = Date.now() + WAKE_GIVE_UP_MS;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(`${BASE}/api/health`, { signal: AbortSignal.timeout(WAKE_ATTEMPT_TIMEOUT_MS) });
+      if (res.ok) return;
+    } catch {
+      // The platform's own error pages during boot have no CORS headers, so they land here too.
+    }
+    await new Promise((resolve) => setTimeout(resolve, WAKE_RETRY_MS));
+  }
 }
 
 export async function fetchProvision(id: string): Promise<ProvisionResponse> {
