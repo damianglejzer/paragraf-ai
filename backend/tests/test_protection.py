@@ -1,12 +1,13 @@
 """Demo protection: client IP detection, rate limits, request guards and quotas."""
 
 import datetime as dt
+import time
 
 import pytest
 from fastapi.testclient import TestClient
 
 from paragraf.api import protection
-from paragraf.api.main import MAX_BODY_BYTES, app
+from paragraf.api.main import MAX_BODY_BYTES, app, make_pool
 
 
 @pytest.mark.parametrize(
@@ -67,6 +68,32 @@ def test_too_much_history_fails_validation() -> None:
 def test_api_docs_are_off_by_default() -> None:
     assert client.get("/docs").status_code == 404
     assert client.get("/openapi.json").status_code == 404
+
+
+@pytest.mark.integration
+def test_pool_replaces_a_connection_the_database_dropped() -> None:
+    """Serverless Postgres suspends when idle and drops connections the pool still holds."""
+    from paragraf.config import get_settings
+    from paragraf.db import repository as repo
+
+    with make_pool(get_settings().database_url) as pool:
+        pool.wait()
+        with pool.connection() as conn:
+            pid = conn.execute("SELECT pg_backend_pid() AS pid").fetchone()["pid"]
+
+        with repo.connect() as admin:
+            admin.execute("SELECT pg_terminate_backend(%s)", (pid,))
+            admin.commit()
+            for _ in range(50):
+                gone = admin.execute("SELECT 1 FROM pg_stat_activity WHERE pid = %s", (pid,))
+                if gone.fetchone() is None:
+                    break
+                admin.commit()
+                time.sleep(0.1)
+
+        with pool.connection() as conn:
+            row = conn.execute("SELECT pg_backend_pid() AS pid").fetchone()
+        assert row["pid"] != pid
 
 
 @pytest.mark.integration

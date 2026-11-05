@@ -86,15 +86,21 @@ class ChatRequest(BaseModel):
     history: list[Turn] = Field(default_factory=list, max_length=8)
 
 
+def make_pool(database_url: str) -> ConnectionPool[Any]:
+    return ConnectionPool(
+        database_url,
+        min_size=1,
+        max_size=4,
+        kwargs={"row_factory": dict_row, "autocommit": True},
+        # Serverless Postgres suspends when idle and drops connections the pool still holds.
+        check=ConnectionPool.check_connection,
+        open=False,
+    )
+
+
 class Services:
     def __init__(self) -> None:
-        self.pool: ConnectionPool[Any] = ConnectionPool(
-            settings.database_url,
-            min_size=1,
-            max_size=4,
-            kwargs={"row_factory": dict_row, "autocommit": True},
-            open=False,
-        )
+        self.pool = make_pool(settings.database_url)
         self.embedder = make_embedder(settings)
         self.reranker = make_reranker(settings)
         self.llm = make_llm(settings)
