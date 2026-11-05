@@ -1,55 +1,123 @@
 # Paragraf AI
 
-An AI assistant for Polish labour law, built on **the full Labour Code (Kodeks pracy)**. It
-**always cites the exact article / § / paragraph** and then
-**automatically verifies every citation**. The verifier checks that the provision exists, that
-the quoted fragment is really in it, and that it supports the claim. The chat is the surface; the
-point of the project is retrieval quality and citation verification.
+**An AI assistant for Polish labour law that proves its answers.** It answers from the full Labour
+Code (Kodeks pracy), cites the exact article, § or paragraph, and then automatically checks every
+citation: does the provision exist, is the quote really in it, and does it support the claim?
 
-> Portfolio project. Not legal advice. LLM calls use the OpenAI API (cheap mini/nano models);
-> embeddings and reranking use Jina's free tier.
+![An answer with its agent steps and a verified citation to art. 154 § 1 of the Labour Code](docs/screenshot.png)
 
-## What it does
+> Portfolio project, not legal advice. The interface and the answers are in Polish.
 
-- **Structural chunking** of official consolidated texts from the Sejm ELI API. One chunk is an
-  article, § or paragraph, stored with its full path, e.g. `KP, Dział VII, Rozdział I, art. 154 § 1`.
-  The parser matches the API's `/struct` tree 100%.
-- **Hybrid retrieval.** Lemmatized full-text search (spaCy `pl`, Postgres `simple` config) and
-  pgvector embeddings, fused with RRF. Before searching, an LLM rewrites the question into
-  statutory vocabulary. A cross-encoder reranks the results.
-- **LangGraph agent.** It asks for clarification, refuses out-of-scope questions, looks up cited
-  articles and follows cross-references ("art. 22 § 1" → relation).
-- **Citation verification.** Each citation gets one of three statuses: *verified*, *uncertain* or
-  *wrong*. Wrong citations are removed from the answer. The UI shows the status of every citation.
-- **MCP server** (official Python SDK). It exposes `search_law`, `get_article`,
-  and `follow_reference`.
-- **Demo protection.** Per-IP limits per minute and per day, a global daily budget with a
-  cache-only fallback, a cap on concurrent agent runs, an answer cache, request size limits,
-  security headers and a proxy-aware client IP that cannot be spoofed (docs/DECISIONS.md, D19).
+## Why it exists
+
+A chatbot can state a legal rule with full confidence and cite an article that says something else.
+The chat here is only the surface. The work went into retrieval quality, citation verification and
+measuring both.
+
+## Results
+
+Evaluated on 33 questions, comparing the full system with a naive RAG baseline (fixed-size chunks,
+vector search only):
+
+| Metric | Naive RAG | Paragraf AI |
+|---|---:|---:|
+| Correct answers | 52% | **85%** |
+| Citations verified as correct | 12% | **87%** |
+| Wrong citations shown to the user | 76% | **0%** |
+| Right provision in the top 5 results (recall@5) | 80% | **96%** |
+| Out-of-scope questions refused | 6/6 | **6/6** |
+| In-scope questions wrongly refused | 1/27 | **0/27** |
+
+A question costs about **$0.004** on the full system.
+
+The questions and expected answers are synthetic: a model generated them and no lawyer reviewed
+them. On a set this small one question moves a percentage by about 3 points, so only large
+differences are meaningful. "0% wrong" means that the verifier removed every citation it judged
+wrong, not that it never misses one. The full report is on the "Jak to działa" page of the app.
+
+## How it works
+
+```mermaid
+flowchart LR
+    Q([Question]) --> P[Plan]
+    P -->|out of scope or unclear| R([Refuse or ask back])
+    P -->|answerable| G[Hybrid search]
+    G --> E[Follow cross-references]
+    E --> A[Answer with citations]
+    A --> V[Verify citations]
+    V --> F([Answer with a status per citation])
+```
+
+**Data.** Official consolidated texts come from the Sejm ELI API as HTML. The corpus is the full
+Labour Code plus selected topics from the Civil Code and the Consumer Rights Act: 1378 retrieval
+units in total, 1178 of them from the Labour Code.
+
+**Structural chunking.** One unit is an article, § or paragraph, stored with its full path, e.g.
+`KP, Dział VII, Rozdział I, art. 154 § 1`. The parser matches the API's `/struct` tree 100%.
+
+**Hybrid retrieval.** An LLM first rewrites the question into statutory vocabulary. Lemmatized
+full-text search (spaCy, Postgres) and pgvector embeddings are then fused with Reciprocal Rank
+Fusion, and a cross-encoder reranks the results.
+
+**LangGraph agent.** It asks for clarification when a question is ambiguous, refuses out-of-scope
+questions, and follows references between provisions ("art. 22 § 1" becomes a stored relation).
+
+**Citation verification.** Each citation goes through three checks:
+
+1. The cited provision exists in the database.
+2. The quoted fragment is really in it (fuzzy match).
+3. A separate LLM judge, which sees only the provision and the claim, decides if one supports the
+   other.
+
+The result is *verified*, *uncertain* or *wrong*. Wrong citations are removed from the answer, and
+the UI shows the status of the rest. The answer is shown only after this step, so the typing effect
+replays checked text instead of streaming raw model output.
+
+**Demo protection.** The public demo has per-IP limits per minute and per day, a global daily
+budget, a cap on concurrent agent runs, an answer cache, request size limits, security headers and
+a client IP that cannot be spoofed ([D19](docs/DECISIONS.md)).
+
+Every significant choice, with the alternatives considered, is in
+[docs/DECISIONS.md](docs/DECISIONS.md).
+
+## Stack
+
+| Layer | Choice |
+|---|---|
+| Agent | LangGraph |
+| LLM | OpenAI `gpt-5.4-mini` (answers), `gpt-5.4-nano` (citation judge) |
+| Retrieval | Postgres full-text search, pgvector, Jina v3 embeddings, Jina reranker |
+| Lemmatization | spaCy `pl_core_news_sm` |
+| Database | PostgreSQL 16 with pgvector |
+| API | FastAPI with Server-Sent Events |
+| Frontend | React, TypeScript, Vite |
+| Tooling | uv, ruff, mypy `--strict`, pytest, GitHub Actions, Docker |
+
+The LLM, embeddings and reranker sit behind provider interfaces chosen in `.env`. A `fake` provider
+keeps the tests and CI offline.
 
 ## Run locally
 
-Requirements: Docker, [uv](https://docs.astral.sh/uv/), Node 20+.
+Requirements: Docker, [uv](https://docs.astral.sh/uv/), Node 20+, and two API keys:
+[OpenAI](https://platform.openai.com/api-keys) (paid) and [Jina](https://jina.ai) (a new key comes
+with 10M free tokens).
 
 ```bash
-cp .env.example .env          # then fill in OPENAI_API_KEY and JINA_API_KEY (Jina is free)
-./scripts/dev.sh              # Postgres + API (:8010) + frontend (:5173)
+cp .env.example .env    # fill in OPENAI_API_KEY and JINA_API_KEY
+./scripts/dev.sh        # Postgres + API (:8010) + frontend (:5173)
 ```
 
-Open http://localhost:5173. The first run downloads the acts from the ELI API and builds the
-index, which takes about a minute.
+Open http://localhost:5173. The first run downloads the acts from the ELI API and builds the index,
+which takes a few minutes.
 
-Optional: precompute the example questions so they answer instantly (with the API running):
+To make the example questions answer instantly, precompute them while the API is running:
 
 ```bash
 uv run python -m paragraf.api.warm_cache
 ```
 
-Free keys:
-- OpenAI: https://platform.openai.com/api-keys
-- Jina: https://jina.ai (a new key comes with 10M free tokens)
-
-### Step by step (instead of `dev.sh`)
+<details>
+<summary>Step by step, without <code>dev.sh</code></summary>
 
 ```bash
 docker compose up -d db
@@ -60,95 +128,91 @@ uv run uvicorn paragraf.api.main:app --port 8010 --no-proxy-headers
 cd frontend && npm install && npm run dev
 ```
 
-### Evaluation
+</details>
+
+## Evaluation
 
 ```bash
-uv run python -m paragraf.evaluation.generate   # ~32 synthetic questions, ~70 LLM calls
-uv run python -m paragraf.evaluation.run_all    # retrieval + generation, writes frontend/src/data/eval-report.json
+uv run python -m paragraf.evaluation.generate   # synthetic questions, ~70 LLM calls
+uv run python -m paragraf.evaluation.run_all    # retrieval + generation, ~200 LLM calls
 ```
 
-The suite is deliberately small: `run_all` makes roughly 200 LLM calls (a few cents with the
-mini/nano models) and runs 4 questions in parallel. LLM responses are cached on disk, so a re-run only pays for unfinished calls. The
-results appear on the "Jak to działa" page.
-
-### Portable bundle (whole app in Docker)
-
-Database with the indexed corpus, backend and frontend as three containers, packed into one file
-you can copy to another machine (e.g. on a USB drive):
-
-```bash
-./scripts/bundle.sh            # needs the local db running; writes bundle/ (~375 MB)
-```
-
-On the other machine (Docker and internet access needed): `docker load -i
-paragraf-images.tar.gz`, put a `.env` with your keys next to `docker-compose.yml`, then
-`docker compose up -d` and open http://localhost:8080. Details are in `bundle/README.txt`.
-No secrets go into the images; the database starts from a dump of your local one.
-
-### MCP server
-
-```bash
-uv run python -m paragraf.mcp_server.server          # stdio (Claude Desktop / Claude Code)
-uv run python -m paragraf.mcp_server.server --http   # streamable HTTP on :8765
-```
+A run costs a few cents and writes `frontend/src/data/eval-report.json`, which is bundled into the
+frontend. LLM responses are cached on disk, so a re-run only pays for unfinished calls.
 
 ## Deployment
 
-The backend is a single FastAPI process; the frontend is a static Vite build.
+The backend is a single FastAPI process in Docker and the frontend is a static Vite build. The
+intended setup is Neon, Render and Vercel, all on free tiers.
 
-**Database.** Postgres 16 with pgvector (e.g. Neon's free tier). Point `DATABASE_URL` at it and,
-once, from your machine:
+**Database (Neon).** Create a Postgres 16 database, point `DATABASE_URL` at it, and load the data
+once from your machine (about 2 minutes):
 
 ```bash
-uv run python -m paragraf.ingest            # tables + the full Labour Code and other acts
-uv run python -m paragraf.indexing.index    # lemmas + embeddings (about 2 minutes)
+uv run python -m paragraf.ingest
+uv run python -m paragraf.indexing.index
 ```
 
-**Backend** (e.g. a Render web service, repository root). The repository has a `Dockerfile`:
-choose the Docker runtime and Render builds the image itself (no build or start command
-needed; it listens on `$PORT`). Locally:
+**Backend (Render).** Create a web service from the repository root with the Docker runtime. Render
+builds the `Dockerfile`, and the app listens on `$PORT`. Set the variables from `.env.example`
+without their comments, in particular:
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | the Neon connection string |
+| `OPENAI_API_KEY`, `JINA_API_KEY` | your keys |
+| `LLM_PROVIDER` | `openai` |
+| `EMBEDDING_PROVIDER`, `RERANKER_PROVIDER` | `jina` |
+| `CORS_ORIGINS` | `https://<frontend-domain>` |
+| `TRUSTED_PROXY_HOPS` | `1` (one proxy in front of the app) |
+
+`https://<backend-domain>/api/health` should return `{"status": "ok", "chunks": 1378}`. Then
+precompute the example questions:
+
+```bash
+uv run python -m paragraf.api.warm_cache --url https://<backend-domain>
+```
+
+**Frontend (Vercel).** Use the root directory `frontend` and set
+`VITE_API_URL=https://<backend-domain>`. `frontend/vercel.json` adds the security headers.
+
+**Sleeping services.** Free tiers put the backend and database to sleep when idle. The frontend
+calls `/api/health` on page load so they start waking up right away, and shows a notice if that
+takes longer than 1.5 s.
+
+**Spending cap.** Set a monthly budget limit in the OpenAI dashboard. The app's limits bound the
+daily cost, but the provider-side cap is the one nothing can route around.
+
+<details>
+<summary>Run the backend image locally</summary>
 
 ```bash
 docker build -t paragraf-api .
 docker run --rm --network host -e PORT=8020 -v "$PWD/.env:/app/.env:ro" paragraf-api
 ```
 
-(Mounting `.env` keeps its inline comments working; `--env-file` would pass them as part of the
-values.) Without Docker, on a native Python runtime:
-- Build: `uv sync --frozen --no-dev`
-- Start: `uv run uvicorn paragraf.api.main:app --host 0.0.0.0 --port $PORT --workers 1 --no-proxy-headers`
-  (one worker: the per-minute limiter and the concurrency cap live in memory;
-  `--no-proxy-headers`: the app reads `X-Forwarded-For` itself, see `TRUSTED_PROXY_HOPS`)
-- Environment: everything from `.env.example`, in particular `OPENAI_API_KEY`, `JINA_API_KEY`,
-  `LLM_PROVIDER=openai`, `EMBEDDING_PROVIDER=jina`, `RERANKER_PROVIDER=jina`,
-  `CORS_ORIGINS=https://<frontend-domain>` and `TRUSTED_PROXY_HOPS=1` (one proxy in front).
-- Check: `curl https://<backend-domain>/api/health` returns `{"status": "ok", "chunks": 1378}`.
-- Pre-answer the example questions so they work instantly and for free:
-  `uv run python -m paragraf.api.warm_cache --url https://<backend-domain>`
+Mounting `.env` keeps its inline comments working; `--env-file` would pass them as part of the
+values.
 
-**Frontend** (e.g. Vercel): root directory `frontend`, build `npm run build`, output `dist`,
-environment `VITE_API_URL=https://<backend-domain>`. `frontend/vercel.json` adds a Content
-Security Policy and the other security headers. On page load the frontend calls `/api/health`,
-so a backend and database that went to sleep on a free tier start waking before the first question.
-If the backend takes longer than 1.5 s to answer, a notice above the input says the server is starting.
+</details>
 
-**Spending cap.** Set a monthly budget limit in the OpenAI dashboard. The app's limits keep costs
-around a dollar a day at worst, but the provider-side cap is the one nothing can route around.
+## Also included
 
-## Stack
+**MCP server.** It exposes `search_law`, `get_article` and `follow_reference` to MCP clients such as
+Claude Desktop. It is a local tool and must not be exposed publicly.
 
-| Layer | Choice |
-|---|---|
-| Data | Sejm ELI API (HTML consolidated texts), Pydantic validation, on-disk cache |
-| DB | PostgreSQL 16 + pgvector (Docker locally) |
-| Retrieval | spaCy `pl_core_news_sm` lemmas → `tsvector('simple')`, Jina v3 embeddings, RRF, Jina reranker |
-| LLM | OpenAI `gpt-5.4-mini` (answers) and `gpt-5.4-nano` (citation judge) behind a provider interface (`.env`); Gemini still supported |
-| Agent | LangGraph |
-| API | FastAPI + Server-Sent Events |
-| Frontend | React + TypeScript + Vite |
-| Observability | Langfuse (optional, via `.env`) |
+```bash
+uv run python -m paragraf.mcp_server.server          # stdio
+uv run python -m paragraf.mcp_server.server --http   # streamable HTTP on :8765
+```
 
-The reasoning behind each choice is in [docs/DECISIONS.md](docs/DECISIONS.md).
+**Portable bundle.** The database with the indexed corpus, the backend and the frontend, as three
+containers packed into one file (about 375 MB). The images contain no secrets. The target machine
+needs Docker, internet access and its own `.env`; `bundle/README.txt` has the steps.
+
+```bash
+./scripts/bundle.sh     # needs the local database running; writes bundle/
+```
 
 ## Development
 
@@ -156,11 +220,13 @@ The reasoning behind each choice is in [docs/DECISIONS.md](docs/DECISIONS.md).
 uv run ruff check . && uv run ruff format --check .
 uv run mypy
 uv run pytest                 # offline, fake providers
-uv run pytest -m integration  # needs the local DB
+uv run pytest -m integration  # needs the local database
 ```
 
-## Status
-
-- Done: local demo (data pipeline, hybrid retrieval, agent, verification, MCP, API, UI), the full
-  Labour Code indexed (1178 retrieval units), eval suite with results on the "Jak to działa" page.
-- Next: security test suite in CI, public deployment.
+```text
+backend/paragraf/   eli client, parsing, db, indexing, retrieval, generation, agent, mcp_server, api, providers
+backend/tests/      pytest
+evals/              dataset, eval results
+frontend/           React + TypeScript + Vite
+docs/               design decisions, ELI API spec
+```
